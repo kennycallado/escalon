@@ -7,14 +7,14 @@ pub struct Client {
     pub last_seen: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Action {
     Join(String),
     Check(String),
     // Test(u64),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Message {
     pub action: Action,
 }

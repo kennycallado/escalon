@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
     let port = std::env::var("PORT").unwrap_or("65056".to_string());
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0".to_string());
 
-    let mut server = Server::new(&format!("{}:{}", addr, port), sys.host_name().unwrap() ).await?;
+    let mut server = Server::new(addr, port, sys.host_name().unwrap()).await?;
     server.listen(|id, addr, port| { println!("Server {} listening: {}:{}", id, addr, port) }).await?;
 
     // puede que en capas superiores necesite
