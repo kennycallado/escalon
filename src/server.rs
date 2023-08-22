@@ -1,9 +1,11 @@
+use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Result;
+use anyhow::anyhow;
 
 use chrono::Utc;
 
@@ -16,49 +18,67 @@ use crate::constants::{THRESHOLD, HEARTBEAT, BUFFER_SIZE, MAX_CONNECTIONS};
 
 pub struct Server {
     id: String,
-    addr: String,
-    port: String,
-    socket: Option<Arc<UdpSocket>>,
+    socket: Arc<UdpSocket>,
     clients: Arc<Mutex<HashMap<String, Client>>>,
     tx_handler: Option<Sender<(Message, SocketAddr)>>,
     tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
 }
 
-impl Server {
-    pub async fn new(addr: String, port: String, id: String) -> Result<Self> {
-        // config through figment
-        // figmet should allow change the prefix
-        // and the toml file name
+pub struct ServerBuilder {
+    id: String,
+    addr: Option<IpAddr>,
+    port: Option<u16>,
+}
 
-        // En este punto debe tomar todos los parametros
-        // por defecto
-        //
-        // después con método set_config se pueden cambiar
-        // y previamente definir figment para que tome
-        // los valores de un archivo toml o env
-
-
-        let server = Self {
+impl ServerBuilder {
+    pub fn new(id: String) -> Self {
+        Self {
             id,
-            addr,
-            port,
-            socket: None,
+            addr: None,
+            port: None,
+        }
+    }
+
+    pub fn set_addr(mut self, addr: IpAddr) -> Self {
+        self.addr = Some(addr);
+
+        self
+    }
+
+    pub fn set_port(mut self, port: u16) -> Self {
+        self.port = Some(port);
+
+        self
+    }
+
+    pub async fn build(self) -> Result<Server> {
+        let addr = self.addr.ok_or(anyhow!("Address not set"))?;
+        let port = self.port.ok_or(anyhow!("Port not set"))?;
+
+        let socket = UdpSocket::bind(format!("{:?}:{}", addr, port)).await?;
+        socket.set_broadcast(true)?;
+
+        let server = Server {
+            id: self.id,
+            socket: Arc::new(socket),
             clients: Arc::new(Mutex::new(HashMap::new())),
             tx_handler: None,
             tx_sender: None,
         };
-
+        
         Ok(server)
     }
+}
 
-
-    pub async fn listen(&mut self, cb: impl FnOnce(String, String, String)) -> Result<()> {
+impl Server {
+    pub async fn listen(&mut self) -> Result<()> {
+    // pub async fn listen(&mut self, cb: impl FnOnce(String, String, String)) -> Result<()> {
         // bind
-        let socket = UdpSocket::bind(format!("{}:{}", &self.addr, &self.port)).await?;
-        socket.set_broadcast(true)?;
+        // let socket = UdpSocket::bind(&self.addr).await?;
+        // socket.set_broadcast(true)?;
 
         // sets
-        self.socket = Some(Arc::new(socket));
+        // self.socket = Arc::new(socket);
         self.tx_sender = Some(self.to_udp()?);
         self.tx_handler = Some(self.handle_action()?);
 
@@ -66,21 +86,13 @@ impl Server {
         self.send_join().await?;
         self.from_udp()?;
 
-        // TODO: change with figment
-        let id = self.id.clone();
-        let addr = self.socket.clone().unwrap().as_ref().clone().local_addr()?.ip().to_string();
-        let port = self.socket.clone().unwrap().as_ref().clone().local_addr()?.port().to_string();
+        let mut sigterm = signal(SignalKind::terminate())?;
+        tokio::select! {
+            _ = sigterm.recv() => { },
+            _ = tokio::signal::ctrl_c() => { },
+        }
 
-        // TODO: change with figment
-        cb(id, addr, port);
-
-        // let sigterm = signal(SignalKind::terminate())?;
-        // tokio::select! {
-        //     _ = sigterm.recv() => { },
-        //     _ = tokio::signal::ctrl_c() => { },
-        // }
-
-        signal(SignalKind::terminate())?.recv().await;
+        // signal(SignalKind::terminate())?.recv().await;
         println!(" ->> Shutting down the server");
 
         Ok(())
@@ -172,7 +184,7 @@ impl Server {
     }
 
     fn to_udp(&self) -> Result<Sender<(Message, Option<SocketAddr>)>> {
-        let socket = self.socket.clone().unwrap();
+        let socket = self.socket.clone();
         let (tx, mut rx) = tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
 
         tokio::task::spawn(async move {
@@ -199,7 +211,7 @@ impl Server {
     }
 
     fn from_udp(&self) -> Result<()> {
-        let socket = self.socket.clone().unwrap();
+        let socket = self.socket.clone();
         let tx = self.tx_handler.clone();
 
         tokio::task::spawn(async move {

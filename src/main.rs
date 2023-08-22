@@ -18,31 +18,42 @@
 // Check also add new clients
 //
 
+use std::net::IpAddr;
+
 use anyhow::Result;
+use server::ServerBuilder;
 use sysinfo::{System, SystemExt};
 
 mod constants;
 mod server;
 mod types;
 
-use crate::server::Server;
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let mut sys = System::new();
     sys.refresh_all();
 
+    // way to determinate the memory used by the process
     // println!("Memory: {} Mb", sys.used_memory() / 1024 / 1024);
-    // println!("Hostname: {}", sys.host_name().unwrap());
 
-    let port = std::env::var("PORT").unwrap_or("65056".to_string());
-    let addr = std::env::var("ADDR").unwrap_or("0.0.0.0".to_string());
+    let hostname = match sys.host_name() {
+        Some(hostname) => hostname,
+        None => {
+            println!("Hostname not found");
+            std::process::exit(1);
+        }
+    };
 
-    let mut server = Server::new(addr, port, sys.host_name().unwrap()).await?;
-    server.listen(|id, addr, port| { println!("Server {} listening: {}:{}", id, addr, port) }).await?;
+    let addr = std::env::var("ADDR").unwrap_or("0.0.0.0".to_string()).parse::<IpAddr>()?;
+    let port = std::env::var("PORT").unwrap_or("65056".to_string()).parse::<u16>()?;
 
-    // puede que en capas superiores necesite
-    // guardar en db el id u otros...
+    let mut udp_server = ServerBuilder::new(hostname)
+        .set_addr(addr)
+        .set_port(port)
+        .build().await?;
+
+    println!("Server started at {}:{}", addr, port);
+    udp_server.listen().await?;
 
     Ok(())
 }
