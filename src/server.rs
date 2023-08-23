@@ -22,14 +22,14 @@ pub struct Server {
     clients: Arc<Mutex<HashMap<String, Client>>>,
     tx_handler: Option<Sender<(Message, SocketAddr)>>,
     tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
-    tx_up: Sender<Message>,
+    // tx_up: Sender<Message>,
 }
 
 pub struct ServerBuilder {
     id: String,
     addr: Option<IpAddr>,
     port: Option<u16>,
-    tx_up: Option<Sender<Message>>,
+    // tx_up: Option<Sender<Message>>,
 }
 
 impl ServerBuilder {
@@ -38,7 +38,7 @@ impl ServerBuilder {
             id,
             addr: None,
             port: None,
-            tx_up: None,
+            // tx_up: None,
         }
     }
 
@@ -54,16 +54,16 @@ impl ServerBuilder {
         self
     }
 
-    pub fn set_sender(mut self, tx_up: Sender<Message>) -> Self {
-        self.tx_up = Some(tx_up);
+    // pub fn set_sender(mut self, tx_up: Sender<Message>) -> Self {
+    //     self.tx_up = Some(tx_up);
 
-        self
-    }
+    //     self
+    // }
 
     pub async fn build(self) -> Result<Server> {
         let addr = self.addr.ok_or(anyhow!("Address not set"))?;
         let port = self.port.ok_or(anyhow!("Port not set"))?;
-        let tx_up = self.tx_up.ok_or(anyhow!("Sender not set"))?;
+        // let tx_up = self.tx_up.ok_or(anyhow!("Sender not set"))?;
 
         let socket = UdpSocket::bind(format!("{:?}:{}", addr, port)).await?;
         socket.set_broadcast(true)?;
@@ -74,7 +74,7 @@ impl ServerBuilder {
             clients: Arc::new(Mutex::new(HashMap::new())),
             tx_handler: None,
             tx_sender: None,
-            tx_up,
+            // tx_up,
         };
         
         Ok(server)
