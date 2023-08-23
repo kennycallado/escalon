@@ -14,7 +14,7 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::mpsc::Sender;
 
 use crate::types::{Client, Message, Action};
-use crate::constants::{THRESHOLD, HEARTBEAT, BUFFER_SIZE, MAX_CONNECTIONS};
+use crate::constants::{THRESHOLD_SECS, HEARTBEAT_SECS, BUFFER_SIZE, MAX_CONNECTIONS};
 
 pub struct Server {
     id: String,
@@ -116,7 +116,7 @@ impl Server {
             let message = Message { action: Action::Check(id) };
 
             loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT)).await;
+                tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT_SECS)).await;
                 tx_sender.as_ref().unwrap().send((message.clone(), None)).await.unwrap();
 
                 let mut clients = clients.lock().unwrap();
@@ -124,7 +124,7 @@ impl Server {
 
                 let dead_clients = clients
                     .iter()
-                    .filter(|(_, client)| now - client.last_seen > THRESHOLD)
+                    .filter(|(_, client)| now - client.last_seen > THRESHOLD_SECS)
                     .map(|(id, _)| id.clone())
                     .collect::<Vec<String>>();
 
