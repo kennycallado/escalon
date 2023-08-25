@@ -1,11 +1,9 @@
-use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Result;
-use anyhow::anyhow;
 
 use chrono::Utc;
 
@@ -17,68 +15,12 @@ use crate::types::{Client, Message, Action};
 use crate::constants::{THRESHOLD_SECS, HEARTBEAT_SECS, BUFFER_SIZE, MAX_CONNECTIONS};
 
 pub struct Server {
-    id: String,
-    socket: Arc<UdpSocket>,
-    clients: Arc<Mutex<HashMap<String, Client>>>,
-    tx_handler: Option<Sender<(Message, SocketAddr)>>,
-    tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
+    pub id: String,
+    pub socket: Arc<UdpSocket>,
+    pub clients: Arc<Mutex<HashMap<String, Client>>>,
+    pub tx_handler: Option<Sender<(Message, SocketAddr)>>,
+    pub tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
     // tx_up: Sender<Message>,
-}
-
-pub struct ServerBuilder {
-    id: String,
-    addr: Option<IpAddr>,
-    port: Option<u16>,
-    // tx_up: Option<Sender<Message>>,
-}
-
-impl ServerBuilder {
-    pub fn new(id: String) -> Self {
-        Self {
-            id,
-            addr: None,
-            port: None,
-            // tx_up: None,
-        }
-    }
-
-    pub fn set_addr(mut self, addr: IpAddr) -> Self {
-        self.addr = Some(addr);
-
-        self
-    }
-
-    pub fn set_port(mut self, port: u16) -> Self {
-        self.port = Some(port);
-
-        self
-    }
-
-    // pub fn set_sender(mut self, tx_up: Sender<Message>) -> Self {
-    //     self.tx_up = Some(tx_up);
-
-    //     self
-    // }
-
-    pub async fn build(self) -> Result<Server> {
-        let addr = self.addr.ok_or(anyhow!("Address not set"))?;
-        let port = self.port.ok_or(anyhow!("Port not set"))?;
-        // let tx_up = self.tx_up.ok_or(anyhow!("Sender not set"))?;
-
-        let socket = UdpSocket::bind(format!("{:?}:{}", addr, port)).await?;
-        socket.set_broadcast(true)?;
-
-        let server = Server {
-            id: self.id,
-            socket: Arc::new(socket),
-            clients: Arc::new(Mutex::new(HashMap::new())),
-            tx_handler: None,
-            tx_sender: None,
-            // tx_up,
-        };
-        
-        Ok(server)
-    }
 }
 
 impl Server {

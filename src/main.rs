@@ -20,15 +20,15 @@
 
 mod constants;
 mod server;
+mod server_builder;
 mod types;
 
 use std::net::IpAddr;
 
 use anyhow::Result;
-use server::ServerBuilder;
+use server_builder::ServerBuilder;
+use server::Server;
 use sysinfo::{System, SystemExt};
-
-// use crate::types::Message;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
     let port = std::env::var("PORT").unwrap_or("65056".to_string()).parse::<u16>()?;
 
     // let (tx, mut _rx) = tokio::sync::mpsc::channel::<Message>(100);
-    let mut udp_server = ServerBuilder::new(hostname)
+    let mut udp_server: Server = ServerBuilder::new(hostname)
         .set_addr(addr)
         .set_port(port)
         // .set_sender(tx)
