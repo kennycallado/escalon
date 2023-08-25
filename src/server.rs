@@ -1,17 +1,16 @@
-use std::net::SocketAddr;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Result;
-
 use chrono::Utc;
 
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 
-use crate::types::{Client, Message, Action};
-use crate::constants::{THRESHOLD_SECS, HEARTBEAT_SECS, BUFFER_SIZE, MAX_CONNECTIONS};
+use crate::constants::{BUFFER_SIZE, HEARTBEAT_SECS, MAX_CONNECTIONS, THRESHOLD_SECS};
+use crate::types::{Action, Client, Message};
 
 pub struct Server {
     pub id: String,
@@ -24,12 +23,6 @@ pub struct Server {
 
 impl Server {
     pub async fn listen(&mut self) -> Result<()> {
-    // pub async fn listen(&mut self, cb: impl FnOnce(String, String, String)) -> Result<()> {
-        // bind
-        // let socket = UdpSocket::bind(&self.addr).await?;
-        // socket.set_broadcast(true)?;
-
-        // sets
         // self.socket = Arc::new(socket);
         self.tx_sender = Some(self.to_udp()?);
         self.tx_handler = Some(self.handle_action()?);
@@ -43,7 +36,9 @@ impl Server {
 
     async fn send_join(&self) -> Result<()> {
         let tx = self.tx_sender.as_ref().unwrap();
-        let message = Message { action: Action::Join(self.id.clone()) };
+        let message = Message {
+            action: Action::Join(self.id.clone()),
+        };
 
         tx.send((message, None)).await?;
 
@@ -56,7 +51,9 @@ impl Server {
         let tx_sender = self.tx_sender.clone();
 
         tokio::spawn(async move {
-            let message = Message { action: Action::Check(id) };
+            let message = Message {
+                action: Action::Check(id),
+            };
 
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT_SECS)).await;
@@ -94,31 +91,49 @@ impl Server {
                 match msg.action {
                     Action::Join(id) => {
                         if id != server_id {
-                            update_timestamp_or_insert(&mut clients.lock().unwrap(), id.clone(), addr);
+                            update_timestamp_or_insert(
+                                &mut clients.lock().unwrap(),
+                                id.clone(),
+                                addr,
+                            );
 
                             if !clients.lock().unwrap().contains_key(&id) {
-                                let message = Message { action: Action::Join(server_id.clone()) };
+                                let message = Message {
+                                    action: Action::Join(server_id.clone()),
+                                };
 
-                                tx_sender.as_ref().unwrap().send((message, Some(addr))).await.unwrap();
+                                tx_sender
+                                    .as_ref()
+                                    .unwrap()
+                                    .send((message, Some(addr)))
+                                    .await
+                                    .unwrap();
                             }
                         }
-                    },
+                    }
                     Action::Check(id) => {
                         if id != server_id {
-                            update_timestamp_or_insert(&mut clients.lock().unwrap(), id.clone(), addr);
+                            update_timestamp_or_insert(
+                                &mut clients.lock().unwrap(),
+                                id.clone(),
+                                addr,
+                            );
 
                             // let mut clients = clients.lock().unwrap();
                             // clients.entry(id).and_modify(|client| { client.last_seen = Utc::now().timestamp(); });
                         }
-                    },
+                    }
                 }
 
+                #[rustfmt::skip]
                 fn update_timestamp_or_insert(clients: &mut HashMap<String, Client>, id: String, addr: SocketAddr) {
                     clients
                         .entry(id)
-                        .and_modify(|client| { client.last_seen = Utc::now().timestamp() })
-                        .or_insert(Client { address: addr, last_seen: Utc::now().timestamp() })
-                    ;
+                        .and_modify(|client| client.last_seen = Utc::now().timestamp())
+                        .or_insert(Client {
+                            address: addr,
+                            last_seen: Utc::now().timestamp(),
+                        });
                 }
             }
         });
@@ -128,7 +143,8 @@ impl Server {
 
     fn to_udp(&self) -> Result<Sender<(Message, Option<SocketAddr>)>> {
         let socket = self.socket.clone();
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
+        let (tx, mut rx) =
+            tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
 
         tokio::task::spawn(async move {
             while let Some((msg, addr)) = rx.recv().await {
@@ -138,7 +154,7 @@ impl Server {
                         println!("Error: {e}");
 
                         continue;
-                    },
+                    }
                 };
 
                 let addr = match addr {
@@ -169,9 +185,8 @@ impl Server {
                         println!("Error: {e}");
 
                         continue;
-                    },
+                    }
                 };
-
 
                 tx.clone().unwrap().send((message, addr)).await.unwrap();
             }

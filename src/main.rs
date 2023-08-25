@@ -1,5 +1,6 @@
 //
 // TODO:
+// - [ ] A way to determinate memory usage
 // - [ ] Implementar un sistema de logs
 // - [ ] Implementar un sistema de errores
 // - [ ] Implementar un sistema de tests
@@ -26,17 +27,16 @@ mod types;
 use std::net::IpAddr;
 
 use anyhow::Result;
-use server_builder::ServerBuilder;
-use server::Server;
 use sysinfo::{System, SystemExt};
+use tokio::signal::unix::{signal, SignalKind};
+
+use server::Server;
+use server_builder::ServerBuilder;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let mut sys = System::new();
     sys.refresh_all();
-
-    // way to determinate the memory used by the process
-    // println!("Memory: {} Mb", sys.used_memory() / 1024 / 1024);
 
     let hostname = match sys.host_name() {
         Some(hostname) => hostname,
@@ -54,7 +54,8 @@ async fn main() -> Result<()> {
         .set_addr(addr)
         .set_port(port)
         // .set_sender(tx)
-        .build().await?;
+        .build()
+        .await?;
 
     println!("Server started at {}:{}", addr, port);
     udp_server.listen().await?;

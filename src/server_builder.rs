@@ -1,11 +1,9 @@
-use std::net::IpAddr;
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Result;
-
-
 use tokio::net::UdpSocket;
 
 use crate::server::Server;
@@ -47,7 +45,7 @@ impl ServerBuilder<Addr, Port> {
             tx_sender: None,
             // tx_up,
         };
-        
+
         Ok(server)
     }
 }
@@ -77,4 +75,3 @@ impl<A, P> ServerBuilder<A, P> {
     //     self
     // }
 }
-
