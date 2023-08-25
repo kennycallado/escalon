@@ -1,24 +1,3 @@
-//
-// TODO:
-// - [ ] A way to determinate memory usage
-// - [ ] Implementar un sistema de logs
-// - [ ] Implementar un sistema de errores
-// - [ ] Implementar un sistema de tests
-// - [ ] Implementar un sistema de configuración
-// - [ ] Implementar un sistema de comandos
-//
-// - [ ] Implementar un sistema de stados
-//   - Cada instancia maneja número de jobs
-//   - Cada instancia maneja memoria en uso
-//   - Determinar que cliente maneja los jobs del cliente caido
-//
-
-//
-// echo $RANDOM | xargs -I[] echo '{ "action": { "Join": "'[]'" } }' | socat - udp-datagram:192.168.1.255:65056,broadcast
-// rand=$(echo $RANDOM); while true;do sleep 5; echo '{ "action": { "Check": "'$rand'" } }' | socat - udp-datagram:192.168.1.255:65056,broadcast ;done
-// Check also add new clients
-//
-
 mod constants;
 mod server;
 mod server_builder;
