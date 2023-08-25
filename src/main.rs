@@ -59,5 +59,8 @@ async fn main() -> Result<()> {
     println!("Server started at {}:{}", addr, port);
     udp_server.listen().await?;
 
+    signal(SignalKind::terminate())?.recv().await;
+    println!(" ->> Shutting down the server");
+
     Ok(())
 }

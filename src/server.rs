@@ -8,7 +8,6 @@ use anyhow::Result;
 use chrono::Utc;
 
 use tokio::net::UdpSocket;
-use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::mpsc::Sender;
 
 use crate::types::{Client, Message, Action};
@@ -38,15 +37,6 @@ impl Server {
         // join and listen
         self.send_join().await?;
         self.from_udp()?;
-
-        let mut sigterm = signal(SignalKind::terminate())?;
-        tokio::select! {
-            _ = sigterm.recv() => { },
-            _ = tokio::signal::ctrl_c() => { },
-        }
-
-        // signal(SignalKind::terminate())?.recv().await;
-        println!(" ->> Shutting down the server");
 
         Ok(())
     }
@@ -163,6 +153,7 @@ impl Server {
         Ok(tx)
     }
 
+    #[allow(clippy::wrong_self_convention)]
     fn from_udp(&self) -> Result<()> {
         let socket = self.socket.clone();
         let tx = self.tx_handler.clone();
