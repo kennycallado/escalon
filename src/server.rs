@@ -91,12 +91,6 @@ impl Server {
                 match msg.action {
                     Action::Join(id) => {
                         if id != server_id {
-                            update_timestamp_or_insert(
-                                &mut clients.lock().unwrap(),
-                                id.clone(),
-                                addr,
-                            );
-
                             if !clients.lock().unwrap().contains_key(&id) {
                                 let message = Message {
                                     action: Action::Join(server_id.clone()),
@@ -109,6 +103,12 @@ impl Server {
                                     .await
                                     .unwrap();
                             }
+
+                            update_timestamp_or_insert(
+                                &mut clients.lock().unwrap(),
+                                id.clone(),
+                                addr,
+                            );
                         }
                     }
                     Action::Check(id) => {
