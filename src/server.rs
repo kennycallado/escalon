@@ -34,13 +34,17 @@ impl Server {
         Ok(())
     }
 
-    async fn send_join(&self) -> Result<()> {
-        let tx = self.tx_sender.as_ref().unwrap();
-        let message = Message {
-            action: Action::Join(self.id.clone()),
-        };
+    fn send_join(&self) -> Result<()> {
+        let tx = self.tx_sender.clone();
+        let id = self.id.clone();
 
-        tx.send((message, None)).await?;
+        tokio::task::spawn(async move {
+            let message = Message {
+                action: Action::Join(id),
+            };
+
+            tx.as_ref().unwrap().send((message, None)).await.unwrap();
+        });
 
         Ok(())
     }
