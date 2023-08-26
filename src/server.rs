@@ -18,13 +18,10 @@ pub struct Server {
     pub clients: Arc<Mutex<HashMap<String, Client>>>,
     pub tx_handler: Option<Sender<(Message, SocketAddr)>>,
     pub tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
-    // tx_up: Sender<Message>,
 }
 
 impl Server {
     pub async fn listen(&mut self) -> Result<()> {
-        // self.socket = Arc::new(socket);
-
         // udp sender
         self.tx_sender = Some(self.to_udp()?);
         // join
@@ -88,7 +85,6 @@ impl Server {
     }
 
     fn handle_action(&self) -> Result<Sender<(Message, SocketAddr)>> {
-        // self.start_heartbeat()?;
         let (tx, mut rx) = tokio::sync::mpsc::channel::<(Message, SocketAddr)>(MAX_CONNECTIONS);
 
         let clients = self.clients.clone();
@@ -127,9 +123,6 @@ impl Server {
                                 id.clone(),
                                 addr,
                             );
-
-                            // let mut clients = clients.lock().unwrap();
-                            // clients.entry(id).and_modify(|client| { client.last_seen = Utc::now().timestamp(); });
                         }
                     }
                 }
