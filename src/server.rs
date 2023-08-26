@@ -59,7 +59,7 @@ impl Server {
         let clients = self.clients.clone();
         let tx_sender = self.tx_sender.clone();
 
-        tokio::spawn(async move {
+        tokio::task::spawn(async move {
             let message = Message {
                 action: Action::Check(id),
             };
@@ -95,7 +95,7 @@ impl Server {
         let server_id = self.id.clone();
         let tx_sender = self.tx_sender.clone();
 
-        tokio::spawn(async move {
+        tokio::task::spawn(async move {
             while let Some((msg, addr)) = rx.recv().await {
                 match msg.action {
                     Action::Join(id) => {
