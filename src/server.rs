@@ -24,11 +24,16 @@ pub struct Server {
 impl Server {
     pub async fn listen(&mut self) -> Result<()> {
         // self.socket = Arc::new(socket);
-        self.tx_sender = Some(self.to_udp()?);
-        self.tx_handler = Some(self.handle_action()?);
 
-        // join and listen
-        self.send_join().await?;
+        // udp sender
+        self.tx_sender = Some(self.to_udp()?);
+        // join
+        self.send_join()?;
+        // heartbeat
+        self.start_heartbeat()?;
+        // handler
+        self.tx_handler = Some(self.handle_action()?);
+        // udp reciver
         self.from_udp()?;
 
         Ok(())
@@ -83,7 +88,7 @@ impl Server {
     }
 
     fn handle_action(&self) -> Result<Sender<(Message, SocketAddr)>> {
-        self.start_heartbeat()?;
+        // self.start_heartbeat()?;
         let (tx, mut rx) = tokio::sync::mpsc::channel::<(Message, SocketAddr)>(MAX_CONNECTIONS);
 
         let clients = self.clients.clone();
