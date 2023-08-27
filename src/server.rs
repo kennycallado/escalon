@@ -5,11 +5,15 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use chrono::Utc;
+use sysinfo::{System, SystemExt};
 
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 
 use crate::constants::{BUFFER_SIZE, HEARTBEAT_SECS, MAX_CONNECTIONS, THRESHOLD_SECS};
+use crate::server_builder::NoAddr;
+use crate::server_builder::NoPort;
+use crate::server_builder::ServerBuilder;
 use crate::types::{Action, Client, Message};
 
 pub struct Server {
@@ -21,6 +25,24 @@ pub struct Server {
 }
 
 impl Server {
+    pub fn new() -> ServerBuilder<NoAddr, NoPort> {
+        // let mut sys = System::new();
+        // sys.refresh_all();
+
+        let hostname = match System::new().host_name() {
+            Some(hostname) => hostname,
+            None => {
+                panic!("Hostname not found");
+            }
+        };
+
+        ServerBuilder {
+            id: hostname,
+            addr: NoAddr,
+            port: NoPort,
+        }
+    }
+
     pub async fn listen(&mut self) -> Result<()> {
         // udp sender
         self.tx_sender = Some(self.to_udp()?);

@@ -15,21 +15,10 @@ pub struct NoPort;
 pub struct Port(u16);
 
 pub struct ServerBuilder<A, P> {
-    id: String,
-    addr: A,
-    port: P,
+    pub id: String,
+    pub addr: A,
+    pub port: P,
     // tx_up: Option<Sender<Message>>,
-}
-
-impl ServerBuilder<NoAddr, NoPort> {
-    pub fn new(id: String) -> Self {
-        Self {
-            id,
-            addr: NoAddr,
-            port: NoPort,
-            // tx_up: None,
-        }
-    }
 }
 
 impl ServerBuilder<Addr, Port> {
