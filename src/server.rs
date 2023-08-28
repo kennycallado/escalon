@@ -274,6 +274,23 @@ mod tests {
 
     #[tokio::test]
     #[should_panic]
+    async fn test_bind_twice() {
+        let mut server = Server::new()
+            .set_addr("127.0.0.1".parse().unwrap())
+            .set_port(0) // Use a random available port
+            .set_count(|| 0) // Mock the count callback
+            .build()
+            .await
+            .unwrap();
+
+        assert!(server.listen().await.is_ok());
+        tokio::net::UdpSocket::bind(server.socket.local_addr().unwrap()).await.unwrap();
+
+        drop(server);
+    }
+
+    #[tokio::test]
+    #[should_panic]
     async fn test_server_invalid_port() {
         let mut server = Server::new()
             .set_addr("127.0.0.1".parse().unwrap())
