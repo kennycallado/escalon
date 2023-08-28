@@ -5,30 +5,32 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use chrono::Utc;
+use procinfo;
 use sysinfo::{System, SystemExt};
 
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 
 use crate::constants::{BUFFER_SIZE, HEARTBEAT_SECS, MAX_CONNECTIONS, THRESHOLD_SECS};
-use crate::server_builder::NoAddr;
-use crate::server_builder::NoPort;
 use crate::server_builder::ServerBuilder;
+use crate::server_builder::{NoAddr, NoCount, NoPort};
+use crate::types::ClientState;
 use crate::types::{Action, Client, Message};
+
+pub type Callback = Arc<dyn Fn() -> usize + Send + Sync>;
 
 pub struct Server {
     pub id: String,
-    pub socket: Arc<UdpSocket>,
     pub clients: Arc<Mutex<HashMap<String, Client>>>,
+    pub count: Callback,
+    pub socket: Arc<UdpSocket>,
+    pub start_time: i64,
     pub tx_handler: Option<Sender<(Message, SocketAddr)>>,
     pub tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
 }
 
 impl Server {
-    pub fn new() -> ServerBuilder<NoAddr, NoPort> {
-        // let mut sys = System::new();
-        // sys.refresh_all();
-
+    pub fn new() -> ServerBuilder<NoAddr, NoPort, NoCount> {
         let hostname = match System::new().host_name() {
             Some(hostname) => hostname,
             None => {
@@ -40,6 +42,7 @@ impl Server {
             id: hostname,
             addr: NoAddr,
             port: NoPort,
+            count: NoCount,
         }
     }
 
@@ -60,11 +63,12 @@ impl Server {
 
     fn send_join(&self) -> Result<()> {
         let tx = self.tx_sender.clone();
-        let id = self.id.clone();
+        let server_id = self.id.clone();
+        let server_start_time = self.start_time;
 
         tokio::task::spawn(async move {
             let message = Message {
-                action: Action::Join(id),
+                action: Action::Join((server_id, server_start_time)),
             };
 
             tx.as_ref().unwrap().send((message, None)).await.unwrap();
@@ -74,22 +78,38 @@ impl Server {
     }
 
     fn start_heartbeat(&self) -> Result<()> {
-        let id = self.id.clone();
         let clients = self.clients.clone();
+        let server_count = self.count.clone();
+        let server_id = self.id.clone();
         let tx_sender = self.tx_sender.clone();
 
         tokio::task::spawn(async move {
-            let message = Message {
-                action: Action::Check(id),
-            };
-
             loop {
+                // sleeps
                 tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT_SECS)).await;
-                tx_sender.as_ref().unwrap().send((message.clone(), None)).await.unwrap();
 
+                // build message
+                let memory = procinfo::pid::statm(std::process::id().try_into().unwrap())
+                    .unwrap()
+                    .resident;
+                let client_state = ClientState {
+                    memory,
+                    tasks: server_count(),
+                };
+                println!("ClientState: {:?}", client_state);
+                let message = Message {
+                    action: Action::Check((server_id.clone(), client_state)),
+                };
+
+                // send message
+                tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
+
+                // update clients
                 let mut clients = clients.lock().unwrap();
                 let now = Utc::now().timestamp();
 
+                // detect dead clients
+                // were update on handle_action
                 let dead_clients = clients
                     .iter()
                     .filter(|(_, client)| now - client.last_seen > THRESHOLD_SECS)
@@ -97,7 +117,9 @@ impl Server {
                     .collect::<Vec<String>>();
 
                 for id in dead_clients {
-                    println!("Client dead: {}", id);
+                    let dead = clients.get(&id).unwrap().clone();
+                    println!("{:?} is dead", dead);
+
                     clients.remove(&id);
                 }
             }
@@ -111,16 +133,20 @@ impl Server {
 
         let clients = self.clients.clone();
         let server_id = self.id.clone();
+        let server_start_time = self.start_time;
         let tx_sender = self.tx_sender.clone();
 
         tokio::task::spawn(async move {
             while let Some((msg, addr)) = rx.recv().await {
                 match msg.action {
-                    Action::Join(id) => {
+                    Action::Join((id, start_time)) => {
                         if id != server_id {
                             if !clients.lock().unwrap().contains_key(&id) {
                                 let message = Message {
-                                    action: Action::Join(server_id.clone()),
+                                    action: Action::Join((
+                                        server_id.clone(),
+                                        server_start_time,
+                                    )),
                                 };
 
                                 tx_sender
@@ -131,34 +157,37 @@ impl Server {
                                     .unwrap();
                             }
 
-                            update_timestamp_or_insert(
-                                &mut clients.lock().unwrap(),
-                                id.clone(),
-                                addr,
-                            );
+                            insert(&mut clients.lock().unwrap(), id.clone(), start_time, addr);
                         }
                     }
-                    Action::Check(id) => {
+                    Action::Check((id, state)) => {
                         if id != server_id {
-                            update_timestamp_or_insert(
-                                &mut clients.lock().unwrap(),
-                                id.clone(),
-                                addr,
-                            );
+                            update(&mut clients.lock().unwrap(), id.clone(), state);
                         }
                     }
                 }
+            }
 
-                #[rustfmt::skip]
-                fn update_timestamp_or_insert(clients: &mut HashMap<String, Client>, id: String, addr: SocketAddr) {
-                    clients
-                        .entry(id)
-                        .and_modify(|client| client.last_seen = Utc::now().timestamp())
-                        .or_insert(Client {
-                            address: addr,
-                            last_seen: Utc::now().timestamp(),
-                        });
-                }
+            #[rustfmt::skip]
+            fn insert(clients: &mut HashMap<String, Client>, id: String, start_time: i64, addr: SocketAddr) {
+                clients
+                    .entry(id)
+                    .or_insert(Client {
+                        start_time,
+                        address: addr,
+                        last_seen: Utc::now().timestamp(),
+                        state: ClientState { memory: 0, tasks: 0 },
+                    });
+            }
+
+            #[rustfmt::skip]
+            fn update(clients: &mut HashMap<String, Client>, id: String, state: ClientState) {
+                clients
+                    .entry(id)
+                    .and_modify(|client| {
+                        client.last_seen = Utc::now().timestamp();
+                        client.state = state;
+                    });
             }
         });
 

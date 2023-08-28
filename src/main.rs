@@ -10,6 +10,9 @@ use tokio::signal::unix::{signal, SignalKind};
 
 use crate::server::Server;
 
+// remove this when done
+use rand::prelude::*;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0".to_string()).parse::<IpAddr>()?;
@@ -19,6 +22,10 @@ async fn main() -> Result<()> {
     let mut udp_server = Server::new()
         .set_addr(addr)
         .set_port(port)
+        .set_count(|| {
+            let mut rng = rand::thread_rng();
+            rng.gen_range(0..100)
+        })
         // .set_sender(tx)
         .build()
         .await?;

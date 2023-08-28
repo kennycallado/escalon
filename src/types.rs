@@ -2,15 +2,24 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug)]
 pub struct Client {
     pub address: SocketAddr,
     pub last_seen: i64,
+    pub start_time: i64,
+    pub state: ClientState,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ClientState {
+    pub memory: usize,
+    pub tasks: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Action {
-    Join(String),
-    Check(String),
+    Join((String, i64)),
+    Check((String, ClientState)),
     // Test(u64),
 }
 
