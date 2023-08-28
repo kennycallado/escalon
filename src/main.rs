@@ -30,7 +30,6 @@ async fn main() -> Result<()> {
         .build()
         .await?;
 
-    println!("Server started at {}:{}", addr, port);
     udp_server.listen().await?;
 
     signal(SignalKind::terminate())?.recv().await;

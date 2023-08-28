@@ -58,6 +58,8 @@ impl Server {
         // udp reciver
         self.from_udp()?;
 
+        println!("Server listen on: {}", self.socket.local_addr()?);
+
         Ok(())
     }
 
