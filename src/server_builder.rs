@@ -4,7 +4,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Result;
-use chrono::Utc;
 use tokio::net::UdpSocket;
 
 use crate::server::{Callback, Server};
@@ -35,7 +34,7 @@ impl ServerBuilder<Addr, Port, Count> {
             id: self.id.clone(),
             socket: Arc::new(socket),
             clients: Arc::new(Mutex::new(HashMap::new())),
-            start_time: Utc::now().timestamp(),
+            start_time: std::time::SystemTime::now(),
             tx_handler: None,
             tx_sender: None,
             count: self.count.0.clone(),

@@ -5,7 +5,6 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use chrono::Utc;
-use procinfo;
 use sysinfo::{System, SystemExt};
 
 use tokio::net::UdpSocket;
@@ -24,12 +23,13 @@ pub struct Server {
     pub clients: Arc<Mutex<HashMap<String, Client>>>,
     pub count: Callback,
     pub socket: Arc<UdpSocket>,
-    pub start_time: i64,
+    pub start_time: std::time::SystemTime,
     pub tx_handler: Option<Sender<(Message, SocketAddr)>>,
     pub tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
 }
 
 impl Server {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> ServerBuilder<NoAddr, NoPort, NoCount> {
         let hostname = match System::new().host_name() {
             Some(hostname) => hostname,
@@ -168,7 +168,7 @@ impl Server {
             }
 
             #[rustfmt::skip]
-            fn insert(clients: &mut HashMap<String, Client>, id: String, start_time: i64, addr: SocketAddr) {
+            fn insert(clients: &mut HashMap<String, Client>, id: String, start_time: std::time::SystemTime, addr: SocketAddr) {
                 clients
                     .entry(id)
                     .or_insert(Client {

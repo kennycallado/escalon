@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct Client {
     pub address: SocketAddr,
     pub last_seen: i64,
-    pub start_time: i64,
+    pub start_time: std::time::SystemTime,
     pub state: ClientState,
 }
 
@@ -18,7 +18,7 @@ pub struct ClientState {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Action {
-    Join((String, i64)),
+    Join((String, std::time::SystemTime)),
     Check((String, ClientState)),
     // Test(u64),
 }
