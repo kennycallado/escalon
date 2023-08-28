@@ -96,7 +96,6 @@ impl Server {
                     memory,
                     tasks: server_count(),
                 };
-                println!("ClientState: {:?}", client_state);
                 let message = Message {
                     action: Action::Check((server_id.clone(), client_state)),
                 };
