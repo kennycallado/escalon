@@ -66,7 +66,6 @@ impl<A, P, C> ServerBuilder<A, P, C> {
         }
     }
 
-    // pub fn set_count(self, count: Callback) -> ServerBuilder<A, P, Count> {
     pub fn set_count(
         self,
         count: impl Fn() -> usize + Send + Sync + 'static,

@@ -253,22 +253,20 @@ impl Server {
 // -- Tests --
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[tokio::test]
     async fn test_server_creation_and_listen() -> Result<()> {
-        // Arrange: Create a Server instance
         let mut server = Server::new()
             .set_addr("127.0.0.1".parse().unwrap())
-            .set_port(0)  // Use a random available port
+            .set_port(0) // Use a random available port
             .set_count(|| 0) // Mock the count callback
             .build()
             .await?;
-        
-        // Ensure the server started listening successfully
+
         assert!(server.listen().await.is_ok());
-        
+
         drop(server);
 
         Ok(())
@@ -279,31 +277,32 @@ mod tests{
     async fn test_server_invalid_port() {
         let mut server = Server::new()
             .set_addr("127.0.0.1".parse().unwrap())
-            .set_port(1)  // Use a random available port
+            .set_port(1) // Use a random available port
             .set_count(|| 0) // Mock the count callback
             .build()
-            .await.unwrap();
-        
+            .await
+            .unwrap();
+
         // Ensure the server started listening successfully
         assert!(server.listen().await.is_ok());
-        
+
         drop(server);
     }
-
 
     #[tokio::test]
     async fn test_intercept_before_send_join() -> Result<()> {
         let mut server = Server::new()
             .set_addr("127.0.0.1".parse().unwrap())
-            .set_port(0)  // Use a random available port
+            .set_port(0) // Use a random available port
             .set_count(|| 0) // Mock the count callback
             .build()
             .await?;
 
         // Mock the Sender for tx_sender
-        let (tx_sender, mut rx_sender) = tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
+        let (tx_sender, mut rx_sender) =
+            tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
         server.tx_sender = Some(tx_sender);
-        
+
         // Ensure sending join message was successful
         assert!(server.send_join().is_ok());
 
@@ -311,7 +310,10 @@ mod tests{
         let received_message: (Message, Option<SocketAddr>) = rx_sender.recv().await.unwrap();
 
         assert_eq!(received_message.1, None);
-        assert_eq!(received_message.0.action, Action::Join((server.id.clone(), server.start_time)));
+        assert_eq!(
+            received_message.0.action,
+            Action::Join((server.id.clone(), server.start_time))
+        );
 
         Ok(())
     }
@@ -320,13 +322,14 @@ mod tests{
     async fn test_intercept_before_hertbeat() -> Result<()> {
         let mut server = Server::new()
             .set_addr("127.0.0.1".parse().unwrap())
-            .set_port(0)  // Use a random available port
+            .set_port(0) // Use a random available port
             .set_count(|| 0) // Mock the count callback
             .build()
             .await?;
 
         // Mock the Sender for tx_sender
-        let (tx_sender, mut rx_sender) = tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
+        let (tx_sender, mut rx_sender) =
+            tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
         server.tx_sender = Some(tx_sender);
 
         // Ensure sending join message was successful
