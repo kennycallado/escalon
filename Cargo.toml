@@ -1,12 +1,24 @@
 [package]
-name = "tokio-jobs"
-version = "0.1.0"
+authors = ["kennycallado <kennycallado@hotmail.com>"]
+description = "Simple way to scale your application"
 edition = "2021"
+license = "MIT"
+name = "escalon"
+readme = "README.md"
+version = "0.1.1"
 
-# [profile.release]
-# lto = true
-# opt-level = "z"
-# strip = true
+[profile.release]
+lto = true
+opt-level = "z"
+strip = true
+
+[lib]
+name = "escalon"
+path = "src/lib.rs"
+
+[[bin]]
+name = "escalon"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.72"

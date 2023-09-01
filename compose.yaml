@@ -9,8 +9,8 @@ services:
       PORT: "65056"
       RUST_BACKTRACE: 1
     volumes:
-      - ./target/release/tokio-jobs:/usr/bin/tokio-jobs
-    command: [ "tokio-jobs" ]
+      - ./target/release/escalon:/usr/bin/escalon
+    command: [ "escalon" ]
     deploy:
       replicas: 12
 
@@ -26,8 +26,8 @@ services:
   #     ADDR: "0.0.0.0"
   #     PORT: "65056"
   #   volumes:
-  #     - ./target/release/tokio-jobs:/usr/bin/tokio-jobs
-  #   command: [ "tokio-jobs" ]
+  #     - ./target/release/escalon:/usr/bin/escalon
+  #   command: [ "escalon" ]
 
     # ports: 
     #   - 65056:65056/udp

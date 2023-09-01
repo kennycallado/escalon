@@ -1,6 +1,7 @@
 
 ## TODO:
 - [ ] Determinate memory usage
+- [ ] derive Clone para server...
 
 ## Implementation tests:
 - docker compose up

@@ -169,6 +169,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 
 [[package]]
+name = "escalon"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "procinfo",
+ "rand",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tokio",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -613,20 +627,6 @@ dependencies = [
  "socket2",
  "tokio-macros",
  "windows-sys",
-]
-
-[[package]]
-name = "tokio-jobs"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "procinfo",
- "rand",
- "serde",
- "serde_json",
- "sysinfo",
- "tokio",
 ]
 
 [[package]]
