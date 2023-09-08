@@ -19,7 +19,7 @@ path = "src/lib.rs"
 
 [[example]]
 name = "base"
-path = "examples/main.rs"
+path = "examples/base.rs"
 
 [dependencies]
 anyhow = "1.0.72"
