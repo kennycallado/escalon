@@ -12,9 +12,11 @@ use rand::prelude::*;
 async fn main() -> Result<()> {
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0".to_string()).parse::<IpAddr>()?;
     let port = std::env::var("PORT").unwrap_or("65056".to_string()).parse::<u16>()?;
+    let iden = std::env::var("HOSTNAME").unwrap_or("server".to_string());
 
     // let (tx, mut _rx) = tokio::sync::mpsc::channel::<Message>(100);
     let mut udp_server = Escalon::new()
+        .set_id(iden)
         .set_addr(addr)
         .set_port(port)
         .set_count(|| {
@@ -42,6 +44,7 @@ mod tests {
     #[tokio::test]
     async fn test_server_creation_and_listen() -> Result<()> {
         let mut server = Escalon::new()
+            .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(0) // Use a random available port
             .set_count(|| 0) // Mock the count callback
@@ -58,6 +61,7 @@ mod tests {
     #[should_panic]
     async fn test_bind_twice() {
         let mut server = Escalon::new()
+            .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(0) // Use a random available port
             .set_count(|| 0) // Mock the count callback

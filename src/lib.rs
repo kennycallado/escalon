@@ -8,8 +8,9 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Result;
+use builder::NoId;
 use chrono::Utc;
-use sysinfo::{System, SystemExt};
+// use sysinfo::{System, SystemExt};
 
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
@@ -31,16 +32,16 @@ pub struct Escalon {
 
 impl Escalon {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> EscalonBuilder<NoAddr, NoPort, NoCount> {
-        let hostname = match System::new().host_name() {
-            Some(hostname) => hostname,
-            None => {
-                panic!("Hostname not found");
-            }
-        };
+    pub fn new() -> EscalonBuilder<NoId, NoAddr, NoPort, NoCount> {
+        // let hostname = match System::new().host_name() {
+        //     Some(hostname) => hostname,
+        //     None => {
+        //         panic!("Hostname not found");
+        //     }
+        // };
 
         EscalonBuilder {
-            id: hostname,
+            id: NoId,
             addr: NoAddr,
             port: NoPort,
             count: NoCount,
@@ -260,6 +261,7 @@ mod tests {
     #[tokio::test]
     async fn test_server_creation_and_listen() -> Result<()> {
         let mut server = Escalon::new()
+            .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(0) // Use a random available port
             .set_count(|| 0) // Mock the count callback
@@ -277,6 +279,7 @@ mod tests {
     #[should_panic]
     async fn test_bind_twice() {
         let mut server = Escalon::new()
+            .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(0) // Use a random available port
             .set_count(|| 0) // Mock the count callback
@@ -294,6 +297,7 @@ mod tests {
     #[should_panic]
     async fn test_server_invalid_port() {
         let mut server = Escalon::new()
+            .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(1)
             .set_count(|| 0) // Mock the count callback
@@ -310,6 +314,7 @@ mod tests {
     #[tokio::test]
     async fn test_intercept_before_send_join() -> Result<()> {
         let mut server = Escalon::new()
+            .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(0) // Use a random available port
             .set_count(|| 0) // Mock the count callback
@@ -339,6 +344,7 @@ mod tests {
     #[tokio::test]
     async fn test_intercept_before_hertbeat() -> Result<()> {
         let mut server = Escalon::new()
+            .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(0) // Use a random available port
             .set_count(|| 0) // Mock the count callback
