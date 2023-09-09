@@ -4,34 +4,24 @@ services:
   cron-1:
     image: debian:latest
     environment:
-      # ADDR: "0.0.0.0"
       ADDR: "0.0.0.0"
       PORT: "65056"
       RUST_BACKTRACE: 1
     volumes:
-      - ./target/release/escalon:/usr/bin/escalon
+      - ./target/release/examples/base:/usr/bin/escalon
     command: [ "escalon" ]
     deploy:
-      replicas: 12
+      replicas: 1
 
-    # ports: 
-    #   - 65056:65056/udp
-    # deploy:
-    #   replicas: 2
-    # networks: [ net ]
-
-  # cron-2:
-  #   image: debian:latest
-  #   environment:
-  #     ADDR: "0.0.0.0"
-  #     PORT: "65056"
-  #   volumes:
-  #     - ./target/release/escalon:/usr/bin/escalon
-  #   command: [ "escalon" ]
-
-    # ports: 
-    #   - 65056:65056/udp
-    # networks: [ net ]
-
-# networks:
-#   net:
+  cron-2:
+    image: debian:latest
+    environment:
+      ADDR: "0.0.0.0"
+      PORT: "65056"
+      TASKS: "10"
+      RUST_BACKTRACE: 1
+    volumes:
+      - ./target/release/examples/base:/usr/bin/escalon
+    command: [ "escalon" ]
+    deploy:
+      replicas: 1
