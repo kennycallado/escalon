@@ -24,6 +24,7 @@ pub struct Escalon {
     pub id: String,
     pub clients: Arc<Mutex<HashMap<String, Client>>>,
     pub count: Arc<dyn Fn() -> usize + Send + Sync>,
+    pub own_state: Arc<Mutex<ClientState>>,
     pub socket: Arc<UdpSocket>,
     pub start_time: std::time::SystemTime,
     pub tx_handler: Option<Sender<(Message, SocketAddr)>>,
@@ -86,25 +87,23 @@ impl Escalon {
         let server_count = self.count.clone();
         let server_id = self.id.clone();
         let tx_sender = self.tx_sender.clone();
+        let own_state = self.own_state.clone();
 
         tokio::task::spawn(async move {
             loop {
                 // sleeps
                 tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT_SECS)).await;
 
-                // build message
-                let memory = procinfo::pid::statm(std::process::id().try_into().unwrap())
-                    .unwrap()
-                    .resident;
-                let client_state = ClientState {
-                    memory,
-                    tasks: server_count(),
-                };
-                let message = Message {
-                    action: Action::Check((server_id.clone(), client_state)),
-                };
+                // update own state
+                own_state.lock().unwrap().memory = procinfo::pid::statm(std::process::id().try_into().unwrap()).unwrap().resident;
+                own_state.lock().unwrap().tasks = server_count();
 
-                // send message
+                let own_state = own_state.lock().unwrap().to_owned();
+
+                // send heartbeat
+                let message = Message {
+                    action: Action::Check((server_id.clone(), own_state)),
+                };
                 tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
 
                 // update clients

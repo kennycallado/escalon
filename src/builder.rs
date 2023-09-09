@@ -6,6 +6,7 @@ use std::sync::Mutex;
 use anyhow::Result;
 use tokio::net::UdpSocket;
 
+use crate::types::ClientState;
 use crate::Escalon;
 
 pub struct NoId;
@@ -33,14 +34,20 @@ impl EscalonBuilder<Id, Addr, Port, Count> {
         let socket = UdpSocket::bind(format!("{:?}:{}", self.addr.0, self.port.0)).await?;
         socket.set_broadcast(true)?;
 
+        let own_state = ClientState {
+            memory: 0,
+            tasks: self.count.0(),
+        };
+
         let server = Escalon {
             id: self.id.0,
-            socket: Arc::new(socket),
             clients: Arc::new(Mutex::new(HashMap::new())),
+            count: self.count.0,
+            own_state: Arc::new(Mutex::new(own_state)),
+            socket: Arc::new(socket),
             start_time: std::time::SystemTime::now(),
             tx_handler: None,
             tx_sender: None,
-            count: self.count.0,
             // tx_up,
         };
 
@@ -58,7 +65,7 @@ impl<I, A, P, C> EscalonBuilder<I, A, P, C> {
             // tx_up: self.tx_up,
         }
     }
-    pub fn set_addr(self, addr: IpAddr) -> EscalonBuilder<I,Addr, P, C> {
+    pub fn set_addr(self, addr: IpAddr) -> EscalonBuilder<I, Addr, P, C> {
         EscalonBuilder {
             id: self.id,
             addr: Addr(addr),
@@ -81,7 +88,7 @@ impl<I, A, P, C> EscalonBuilder<I, A, P, C> {
     pub fn set_count(
         self,
         count: impl Fn() -> usize + Send + Sync + 'static,
-    ) -> EscalonBuilder<I,A, P, Count> {
+    ) -> EscalonBuilder<I, A, P, Count> {
         EscalonBuilder {
             id: self.id,
             addr: self.addr,
