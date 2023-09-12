@@ -1,4 +1,7 @@
-use std::net::IpAddr;
+use std::{
+    net::IpAddr,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Result;
 use tokio::signal::unix::{signal, SignalKind};
@@ -7,29 +10,39 @@ use escalon::Escalon;
 
 // remove this when done
 use rand::prelude::*;
+use uuid::Uuid;
+
+struct MyStruct {
+    job_id: Uuid,
+    task: String,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0".to_string()).parse::<IpAddr>()?;
     let port = std::env::var("PORT").unwrap_or("65056".to_string()).parse::<u16>()?;
     let iden = std::env::var("HOSTNAME").unwrap_or("server".to_string());
-    let tasks = std::env::var("TASKS").unwrap_or("0".to_string()).parse::<usize>()?;
 
-    // let (tx, mut _rx) = tokio::sync::mpsc::channel::<Message>(100);
-    let mut udp_server = Escalon::new()
+    // Generate a vector with random number of numbers
+    let mut rng = rand::thread_rng();
+    let mut blah = vec![];
+
+    for _ in 0..rng.gen_range(1..10) {
+        let job = MyStruct {
+            job_id: Uuid::new_v4(),
+            task: "test".to_string(),
+        };
+
+        blah.push(job);
+    }
+
+    let blah = Arc::new(Mutex::new(blah));
+
+    let mut udp_server = Escalon::<MyStruct>::new()
         .set_id(iden)
         .set_addr(addr)
         .set_port(port)
-        .set_count(move || {
-            if tasks > 0 {
-                return tasks;
-            }
-
-            let mut rng = rand::thread_rng();
-            rng.gen_range(0..100)
-        })
-        // .set_sender(tx)
-        .build()
+        .build(blah)
         .await?;
 
     udp_server.listen().await?;
