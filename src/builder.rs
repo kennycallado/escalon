@@ -26,7 +26,6 @@ pub struct EscalonBuilder<I, A, P, C> {
     pub addr: A,
     pub port: P,
     pub count: C,
-    // tx_up: Option<Sender<Message>>,
 }
 
 impl EscalonBuilder<Id, Addr, Port, Count> {
@@ -48,7 +47,6 @@ impl EscalonBuilder<Id, Addr, Port, Count> {
             start_time: std::time::SystemTime::now(),
             tx_handler: None,
             tx_sender: None,
-            // tx_up,
         };
 
         Ok(server)
@@ -62,7 +60,6 @@ impl<I, A, P, C> EscalonBuilder<I, A, P, C> {
             addr: self.addr,
             port: self.port,
             count: self.count,
-            // tx_up: self.tx_up,
         }
     }
     pub fn set_addr(self, addr: IpAddr) -> EscalonBuilder<I, Addr, P, C> {
@@ -71,7 +68,6 @@ impl<I, A, P, C> EscalonBuilder<I, A, P, C> {
             addr: Addr(addr),
             port: self.port,
             count: self.count,
-            // tx_up: self.tx_up,
         }
     }
 
@@ -81,7 +77,6 @@ impl<I, A, P, C> EscalonBuilder<I, A, P, C> {
             addr: self.addr,
             port: Port(port),
             count: self.count,
-            // tx_up: self.tx_up,
         }
     }
 
@@ -94,13 +89,6 @@ impl<I, A, P, C> EscalonBuilder<I, A, P, C> {
             addr: self.addr,
             port: self.port,
             count: Count(Arc::new(count)),
-            // tx_up: self.tx_up,
         }
     }
-
-    // pub fn set_sender(mut self, tx_up: Sender<Message>) -> Self {
-    //     self.tx_up = Some(tx_up);
-
-    //     self
-    // }
 }

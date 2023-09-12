@@ -10,7 +10,6 @@ use std::sync::Mutex;
 use anyhow::Result;
 use builder::NoId;
 use chrono::Utc;
-// use sysinfo::{System, SystemExt};
 
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
@@ -34,13 +33,6 @@ pub struct Escalon {
 impl Escalon {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> EscalonBuilder<NoId, NoAddr, NoPort, NoCount> {
-        // let hostname = match System::new().host_name() {
-        //     Some(hostname) => hostname,
-        //     None => {
-        //         panic!("Hostname not found");
-        //     }
-        // };
-
         EscalonBuilder {
             id: NoId,
             addr: NoAddr,
@@ -95,7 +87,10 @@ impl Escalon {
                 tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT_SECS)).await;
 
                 // update own state
-                own_state.lock().unwrap().memory = procinfo::pid::statm(std::process::id().try_into().unwrap()).unwrap().resident;
+                own_state.lock().unwrap().memory =
+                    procinfo::pid::statm(std::process::id().try_into().unwrap())
+                        .unwrap()
+                        .resident;
                 own_state.lock().unwrap().tasks = server_count();
 
                 let own_state = own_state.lock().unwrap().to_owned();
@@ -299,12 +294,11 @@ mod tests {
             .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(1)
-            .set_count(|| 0) // Mock the count callback
+            .set_count(|| 0)
             .build()
             .await
             .unwrap();
 
-        // Ensure the server started listening successfully
         assert!(server.listen().await.is_ok());
 
         drop(server);
@@ -320,15 +314,12 @@ mod tests {
             .build()
             .await?;
 
-        // Mock the Sender for tx_sender
         let (tx_sender, mut rx_sender) =
             tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
         server.tx_sender = Some(tx_sender);
 
-        // Ensure sending join message was successful
         assert!(server.send_join().is_ok());
 
-        // tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
         let received_message: (Message, Option<SocketAddr>) = rx_sender.recv().await.unwrap();
 
         assert_eq!(received_message.1, None);
@@ -345,17 +336,15 @@ mod tests {
         let mut server = Escalon::new()
             .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
-            .set_port(0) // Use a random available port
-            .set_count(|| 0) // Mock the count callback
+            .set_port(0)
+            .set_count(|| 0)
             .build()
             .await?;
 
-        // Mock the Sender for tx_sender
         let (tx_sender, mut rx_sender) =
             tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
         server.tx_sender = Some(tx_sender);
 
-        // Ensure sending join message was successful
         assert!(server.start_heartbeat().is_ok());
 
         let received_message: (Message, Option<SocketAddr>) = rx_sender.recv().await.unwrap();
