@@ -14,15 +14,15 @@ use chrono::Utc;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 
-use crate::builder::{EscalonBuilder, NoAddr, NoCount, NoPort};
+use crate::builder::{EscalonBuilder, NoAddr, NoPort};
 use crate::constants::{BUFFER_SIZE, HEARTBEAT_SECS, MAX_CONNECTIONS, THRESHOLD_SECS};
 use crate::types::{Action, Client, ClientState, Message};
 
 #[derive(Clone)]
-pub struct Escalon {
+pub struct Escalon<J> {
     pub id: String,
     pub clients: Arc<Mutex<HashMap<String, Client>>>,
-    pub count: Arc<dyn Fn() -> usize + Send + Sync>,
+    pub count: Arc<Mutex<Vec<J>>>,
     pub own_state: Arc<Mutex<ClientState>>,
     pub socket: Arc<UdpSocket>,
     pub start_time: std::time::SystemTime,
@@ -30,14 +30,13 @@ pub struct Escalon {
     pub tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
 }
 
-impl Escalon {
+impl<J: Send + Sync + 'static> Escalon<J> {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> EscalonBuilder<NoId, NoAddr, NoPort, NoCount> {
+    pub fn new() -> EscalonBuilder<NoId, NoAddr, NoPort> {
         EscalonBuilder {
             id: NoId,
             addr: NoAddr,
             port: NoPort,
-            count: NoCount,
         }
     }
 
@@ -91,7 +90,7 @@ impl Escalon {
                     procinfo::pid::statm(std::process::id().try_into().unwrap())
                         .unwrap()
                         .resident;
-                own_state.lock().unwrap().tasks = server_count();
+                own_state.lock().unwrap().tasks = server_count.lock().unwrap().len();
 
                 let own_state = own_state.lock().unwrap().to_owned();
 
@@ -254,12 +253,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_server_creation_and_listen() -> Result<()> {
-        let mut server = Escalon::new()
+        let blah = vec![1, 2, 3];
+        let blah = Arc::new(Mutex::new(blah));
+
+        let mut server = Escalon::<i32>::new()
             .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(0) // Use a random available port
-            .set_count(|| 0) // Mock the count callback
-            .build()
+            .build(blah)
             .await?;
 
         assert!(server.listen().await.is_ok());
@@ -272,12 +273,14 @@ mod tests {
     #[tokio::test]
     #[should_panic]
     async fn test_bind_twice() {
-        let mut server = Escalon::new()
+        let blah = vec![1, 2, 3];
+        let blah = Arc::new(Mutex::new(blah));
+
+        let mut server = Escalon::<i32>::new()
             .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(0) // Use a random available port
-            .set_count(|| 0) // Mock the count callback
-            .build()
+            .build(blah)
             .await
             .unwrap();
 
@@ -290,12 +293,14 @@ mod tests {
     #[tokio::test]
     #[should_panic]
     async fn test_server_invalid_port() {
-        let mut server = Escalon::new()
+        let blah = vec![1, 2, 3];
+        let blah = Arc::new(Mutex::new(blah));
+
+        let mut server = Escalon::<i32>::new()
             .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(1)
-            .set_count(|| 0)
-            .build()
+            .build(blah)
             .await
             .unwrap();
 
@@ -306,12 +311,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_intercept_before_send_join() -> Result<()> {
-        let mut server = Escalon::new()
+        let blah = vec![1, 2, 3];
+        let blah = Arc::new(Mutex::new(blah));
+
+        let mut server = Escalon::<i32>::new()
             .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(0) // Use a random available port
-            .set_count(|| 0) // Mock the count callback
-            .build()
+            .build(blah)
             .await?;
 
         let (tx_sender, mut rx_sender) =
@@ -333,12 +340,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_intercept_before_hertbeat() -> Result<()> {
-        let mut server = Escalon::new()
+        let blah = vec![1, 2, 3];
+        let blah = Arc::new(Mutex::new(blah));
+
+        let mut server = Escalon::<i32>::new()
             .set_id("test")
             .set_addr("127.0.0.1".parse().unwrap())
             .set_port(0)
-            .set_count(|| 0)
-            .build()
+            .build(blah)
             .await?;
 
         let (tx_sender, mut rx_sender) =
@@ -355,28 +364,28 @@ mod tests {
         Ok(())
     }
 
-    // // it doesn't work and I don't know why
-    // //
-    // // #[tokio::test]
-    // // async fn test_never_ends() -> Result<()> {
-    // //     let mut server = Server::new()
-    // //         .set_addr("0.0.0.0".parse().unwrap())
-    // //         .set_port(0)  // Use a random available port
-    // //         .set_count(|| 0) // Mock the count callback
-    // //         .build()
-    // //         .await?;
+    // it doesn't work and I don't know why
+    //
+    // #[tokio::test]
+    // async fn test_never_ends() -> Result<()> {
+    //     let mut server = Server::new()
+    //         .set_addr("0.0.0.0".parse().unwrap())
+    //         .set_port(0)  // Use a random available port
+    //         .set_count(|| 0) // Mock the count callback
+    //         .build()
+    //         .await?;
 
-    // //     let (tx_handler, mut rx_handler) = tokio::sync::mpsc::channel::<(Message, SocketAddr)>(MAX_CONNECTIONS);
+    //     let (tx_handler, mut rx_handler) = tokio::sync::mpsc::channel::<(Message, SocketAddr)>(MAX_CONNECTIONS);
 
-    // //     server.tx_sender = Some(server.to_udp()?);
-    // //     server.send_join()?;
-    // //     server.start_heartbeat()?;
-    // //     // server.tx_handler = Some(server.handle_action()?);
-    // //     server.tx_handler = Some(tx_handler);
-    // //     server.from_udp()?;
+    //     server.tx_sender = Some(server.to_udp()?);
+    //     server.send_join()?;
+    //     server.start_heartbeat()?;
+    //     // server.tx_handler = Some(server.handle_action()?);
+    //     server.tx_handler = Some(tx_handler);
+    //     server.from_udp()?;
 
-    // //     let received_message: (Message, SocketAddr) = rx_handler.recv().await.unwrap();
+    //     let received_message: (Message, SocketAddr) = rx_handler.recv().await.unwrap();
 
-    // //     Ok(())
-    // // }
+    //     Ok(())
+    // }
 }
