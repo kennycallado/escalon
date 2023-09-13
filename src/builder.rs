@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use anyhow::Result;
 use tokio::net::UdpSocket;
 
-use crate::client::ClientState;
+use crate::types::client::ClientState;
 use crate::Escalon;
 
 pub struct NoId;
@@ -18,9 +18,6 @@ pub struct Addr(IpAddr);
 pub struct NoPort;
 pub struct Port(u16);
 
-// pub struct NoCount;
-// pub struct Count<J>(Arc<Mutex<Vec<J>>>);
-
 pub struct EscalonBuilder<I, A, P> {
     pub id: I,
     pub addr: A,
@@ -28,19 +25,18 @@ pub struct EscalonBuilder<I, A, P> {
 }
 
 impl EscalonBuilder<Id, Addr, Port> {
-    pub async fn build<J>(self, count: Arc<Mutex<J>>) -> Result<Escalon<J>> {
+    pub async fn build<J>(self, jobs: Arc<Mutex<J>>) -> Result<Escalon<J>> {
         let socket = UdpSocket::bind(format!("{:?}:{}", self.addr.0, self.port.0)).await?;
         socket.set_broadcast(true)?;
 
         let own_state = ClientState {
             memory: 0,
-            jobs: count,
+            jobs,
         };
 
         let server = Escalon {
             id: self.id.0,
             clients: Arc::new(Mutex::new(HashMap::new())),
-            // count: self.count.0,
             own_state: Arc::new(Mutex::new(own_state)),
             socket: Arc::new(socket),
             start_time: std::time::SystemTime::now(),

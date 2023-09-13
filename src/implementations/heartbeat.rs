@@ -4,9 +4,9 @@ use anyhow::Result;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::client::ClientState;
 use crate::constants::{HEARTBEAT_SECS, THRESHOLD_SECS};
-use crate::message::{Action, Message};
+use crate::types::client::ClientState;
+use crate::types::message::{Action, Message};
 use crate::Escalon;
 
 #[rustfmt::skip]

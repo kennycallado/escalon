@@ -8,13 +8,20 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::constants::MAX_CONNECTIONS;
-use crate::message::{Action, Message};
+use crate::types::message::{Action, Message};
 use crate::Escalon;
 use crate::{Client, ClientState};
 
-impl<J: Default + Debug + for<'a> Deserialize<'a> + Serialize + Send + Sync + 'static>
-    Escalon<J>
-{
+#[rustfmt::skip]
+impl<J: IntoIterator
+        + Default
+        + Clone
+        + Debug
+        + for<'a> Deserialize<'a>
+        + Serialize
+        + Send
+        + Sync
+        + 'static > Escalon<J> {
     pub fn handle_action(&self) -> Result<Sender<(Message<J>, SocketAddr)>> {
         let (tx, mut rx) =
             tokio::sync::mpsc::channel::<(Message<J>, SocketAddr)>(MAX_CONNECTIONS);

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use tokio::signal::unix::{signal, SignalKind};
 use uuid::Uuid;
 
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 struct MyStruct {
     job_id: Uuid,
     task: String,

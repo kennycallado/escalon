@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::client::ClientState;
+use crate::types::client::ClientState;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Message<J> {
