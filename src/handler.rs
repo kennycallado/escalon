@@ -53,7 +53,7 @@ impl<J: Send + Sync + 'static> Escalon<J> {
             }
 
             #[rustfmt::skip]
-            fn insert(clients: &mut HashMap<String, Client>, id: String, start_time: std::time::SystemTime, addr: SocketAddr) {
+            fn insert(clients: &mut HashMap<String, Client<J>>, id: String, start_time: std::time::SystemTime, addr: SocketAddr) {
                 clients
                     .entry(id)
                     .or_insert(Client {
