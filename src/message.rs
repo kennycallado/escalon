@@ -2,14 +2,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::client::ClientState;
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct Message {
-    pub action: Action,
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct Message<J> {
+    pub action: Action<J>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub enum Action {
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub enum Action<J> {
     Join((String, std::time::SystemTime)),
-    Check((String, ClientState)),
+    Check((String, ClientState<J>)),
     // Test(u64),
 }

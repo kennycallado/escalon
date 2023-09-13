@@ -1,36 +1,36 @@
 mod builder;
 mod client;
 mod constants;
-mod message;
 mod handler;
 mod heartbeat;
+mod message;
 
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Result;
 use builder::NoId;
-
+use serde::{Deserialize, Serialize};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 
 use crate::builder::{EscalonBuilder, NoAddr, NoPort};
 use crate::client::{Client, ClientState};
 use crate::constants::{BUFFER_SIZE, MAX_CONNECTIONS};
-use crate::message::{Message, Action};
+use crate::message::{Action, Message};
 
 #[derive(Clone)]
 pub struct Escalon<J> {
     pub id: String,
-    pub clients: Arc<Mutex<HashMap<String, Client>>>,
-    pub jobs: Arc<Mutex<Vec<J>>>,
-    pub own_state: Arc<Mutex<ClientState>>,
+    pub clients: Arc<Mutex<HashMap<String, Client<J>>>>,
+    pub own_state: Arc<Mutex<ClientState<Arc<Mutex<J>>>>>,
     pub socket: Arc<UdpSocket>,
     pub start_time: std::time::SystemTime,
-    pub tx_handler: Option<Sender<(Message, SocketAddr)>>,
-    pub tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
+    pub tx_handler: Option<Sender<(Message<J>, SocketAddr)>>,
+    pub tx_sender: Option<Sender<(Message<J>, Option<SocketAddr>)>>,
 }
 
 impl<J> Escalon<J> {
@@ -44,7 +44,16 @@ impl<J> Escalon<J> {
     }
 }
 
-impl<J: Send + Sync + 'static> Escalon<J> {
+#[rustfmt::skip]
+impl<J: IntoIterator
+        + Default
+        + Clone
+        + Debug
+        + for<'a> Deserialize<'a>
+        + Serialize
+        + Send
+        + Sync
+        + 'static > Escalon<J> {
     pub async fn listen(&mut self) -> Result<()> {
         // udp sender
         self.tx_sender = Some(self.to_udp()?);
@@ -78,10 +87,10 @@ impl<J: Send + Sync + 'static> Escalon<J> {
         Ok(())
     }
 
-    fn to_udp(&self) -> Result<Sender<(Message, Option<SocketAddr>)>> {
+    fn to_udp(&self) -> Result<Sender<(Message<J>, Option<SocketAddr>)>> {
         let socket = self.socket.clone();
         let (tx, mut rx) =
-            tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
+            tokio::sync::mpsc::channel::<(Message<J>, Option<SocketAddr>)>(MAX_CONNECTIONS);
 
         tokio::task::spawn(async move {
             while let Some((msg, addr)) = rx.recv().await {
@@ -116,7 +125,7 @@ impl<J: Send + Sync + 'static> Escalon<J> {
 
             loop {
                 let (len, addr) = socket.recv_from(&mut buf).await.unwrap();
-                let message: Message = match serde_json::from_slice(&buf[..len]) {
+                let message: Message<J> = match serde_json::from_slice(&buf[..len]) {
                     Ok(message) => message,
                     Err(e) => {
                         println!("Error: {e}");
@@ -209,19 +218,22 @@ mod tests {
             .build(blah)
             .await?;
 
-        let (tx_sender, mut rx_sender) =
-            tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
+        let (tx_sender, mut rx_sender) = tokio::sync::mpsc::channel::<(
+            Message<Vec<i32>>,
+            Option<SocketAddr>,
+        )>(MAX_CONNECTIONS);
         server.tx_sender = Some(tx_sender);
+
 
         assert!(server.send_join().is_ok());
 
-        let received_message: (Message, Option<SocketAddr>) = rx_sender.recv().await.unwrap();
+        let received_message: (Message<Vec<i32>>, Option<SocketAddr>) =
+            rx_sender.recv().await.unwrap();
 
+        let id = server.id;
+        let start_time = server.start_time;
         assert_eq!(received_message.1, None);
-        assert_eq!(
-            received_message.0.action,
-            Action::Join((server.id.clone(), server.start_time))
-        );
+        assert_eq!(received_message.0.action, Action::Join((id, start_time)));
 
         Ok(())
     }
@@ -239,12 +251,12 @@ mod tests {
             .await?;
 
         let (tx_sender, mut rx_sender) =
-            tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
+            tokio::sync::mpsc::channel::<(Message<Vec<i32>>, Option<SocketAddr>)>(MAX_CONNECTIONS);
         server.tx_sender = Some(tx_sender);
 
         assert!(server.start_heartbeat().is_ok());
 
-        let received_message: (Message, Option<SocketAddr>) = rx_sender.recv().await.unwrap();
+        let received_message: (Message<Vec<i32>>, Option<SocketAddr>) = rx_sender.recv().await.unwrap();
 
         assert_eq!(received_message.1, None);
         assert!(matches!(received_message.0.action, Action::Check(..)));
@@ -252,28 +264,36 @@ mod tests {
         Ok(())
     }
 
-    // it doesn't work and I don't know why
-    //
-    // #[tokio::test]
-    // async fn test_never_ends() -> Result<()> {
-    //     let mut server = Server::new()
-    //         .set_addr("0.0.0.0".parse().unwrap())
-    //         .set_port(0)  // Use a random available port
-    //         .set_count(|| 0) // Mock the count callback
-    //         .build()
-    //         .await?;
+    #[tokio::test]
+    #[should_panic]
+    async fn test_intercept_after_send_join() {
+        let blah = vec![1, 2, 3];
+        let blah = Arc::new(Mutex::new(blah));
 
-    //     let (tx_handler, mut rx_handler) = tokio::sync::mpsc::channel::<(Message, SocketAddr)>(MAX_CONNECTIONS);
+        let mut server = Escalon::<i32>::new()
+            .set_id("test")
+            .set_addr("127.0.0.1".parse().unwrap())
+            .set_port(0)
+            .build(blah)
+            .await.unwrap();
 
-    //     server.tx_sender = Some(server.to_udp()?);
-    //     server.send_join()?;
-    //     server.start_heartbeat()?;
-    //     // server.tx_handler = Some(server.handle_action()?);
-    //     server.tx_handler = Some(tx_handler);
-    //     server.from_udp()?;
+        let (tx_handler, mut rx_handler) =
+            tokio::sync::mpsc::channel::<(Message<Vec<i32>>, SocketAddr)>(MAX_CONNECTIONS);
 
-    //     let received_message: (Message, SocketAddr) = rx_handler.recv().await.unwrap();
 
-    //     Ok(())
-    // }
+        server.tx_handler = Some(tx_handler);
+
+        server.listen().await.unwrap();
+
+        // let id = server.id;
+        // let start_time = server.start_time;
+        // while let Some(message) = rx_handler.recv().await {
+        //     // assert_eq!(message.0.action, Action::Join((id, start_time)));
+        //     return Ok(());
+        // };
+
+        if let None = rx_handler.recv().await {
+            panic!("blah");
+        };
+    }
 }

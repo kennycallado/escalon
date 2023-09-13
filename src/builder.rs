@@ -28,19 +28,18 @@ pub struct EscalonBuilder<I, A, P> {
 }
 
 impl EscalonBuilder<Id, Addr, Port> {
-    pub async fn build<J>(self, count: Arc<Mutex<Vec<J>>>) -> Result<Escalon<J>> {
+    pub async fn build<J>(self, count: Arc<Mutex<J>>) -> Result<Escalon<J>> {
         let socket = UdpSocket::bind(format!("{:?}:{}", self.addr.0, self.port.0)).await?;
         socket.set_broadcast(true)?;
 
         let own_state = ClientState {
             memory: 0,
-            jobs: 10,
+            jobs: count,
         };
 
         let server = Escalon {
             id: self.id.0,
             clients: Arc::new(Mutex::new(HashMap::new())),
-            jobs: count,
             // count: self.count.0,
             own_state: Arc::new(Mutex::new(own_state)),
             socket: Arc::new(socket),

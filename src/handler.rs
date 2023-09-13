@@ -1,19 +1,23 @@
-use std::net::SocketAddr;
 use std::collections::HashMap;
+use std::fmt::Debug;
+use std::net::SocketAddr;
 use tokio::sync::mpsc::Sender;
 
 use anyhow::Result;
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 
+use crate::constants::MAX_CONNECTIONS;
+use crate::message::{Action, Message};
 use crate::Escalon;
 use crate::{Client, ClientState};
-use crate::message::{Message, Action};
-use crate::constants::MAX_CONNECTIONS;
 
-
-impl<J: Send + Sync + 'static> Escalon<J> {
-    pub fn handle_action(&self) -> Result<Sender<(Message, SocketAddr)>> {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<(Message, SocketAddr)>(MAX_CONNECTIONS);
+impl<J: Default + Debug + for<'a> Deserialize<'a> + Serialize + Send + Sync + 'static>
+    Escalon<J>
+{
+    pub fn handle_action(&self) -> Result<Sender<(Message<J>, SocketAddr)>> {
+        let (tx, mut rx) =
+            tokio::sync::mpsc::channel::<(Message<J>, SocketAddr)>(MAX_CONNECTIONS);
 
         let clients = self.clients.clone();
         let server_id = self.id.clone();
@@ -53,19 +57,19 @@ impl<J: Send + Sync + 'static> Escalon<J> {
             }
 
             #[rustfmt::skip]
-            fn insert(clients: &mut HashMap<String, Client<J>>, id: String, start_time: std::time::SystemTime, addr: SocketAddr) {
+            fn insert<J: Default>(clients: &mut HashMap<String, Client<J>>, id: String, start_time: std::time::SystemTime, addr: SocketAddr) {
                 clients
                     .entry(id)
                     .or_insert(Client {
                         start_time,
                         address: addr,
                         last_seen: Utc::now().timestamp(),
-                        state: ClientState { memory: 0, jobs: 0 },
+                        state: ClientState { memory: 0, jobs: Default::default() },
                     });
             }
 
             #[rustfmt::skip]
-            fn update(clients: &mut HashMap<String, Client>, id: String, state: ClientState) {
+            fn update<J>(clients: &mut HashMap<String, Client<J>>, id: String, state: ClientState<J>) {
                 clients
                     .entry(id)
                     .and_modify(|client| {

@@ -1,15 +1,26 @@
+use std::fmt::Debug;
+
 use anyhow::Result;
-
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 
-use crate::Escalon;
+use crate::client::ClientState;
 use crate::constants::{HEARTBEAT_SECS, THRESHOLD_SECS};
-use crate::message::{Message, Action};
+use crate::message::{Action, Message};
+use crate::Escalon;
 
-impl<J: Send + Sync + 'static> Escalon<J> {
+#[rustfmt::skip]
+impl<J: IntoIterator
+        + Default
+        + Clone
+        + Debug
+        + for<'a> Deserialize<'a>
+        + Serialize
+        + Send
+        + Sync
+        + 'static > Escalon<J> {
     pub fn start_heartbeat(&self) -> Result<()> {
         let clients = self.clients.clone();
-        let server_count = self.jobs.clone();
         let server_id = self.id.clone();
         let tx_sender = self.tx_sender.clone();
         let own_state = self.own_state.clone();
@@ -20,18 +31,21 @@ impl<J: Send + Sync + 'static> Escalon<J> {
                 tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT_SECS)).await;
 
                 // update own state
-                own_state.lock().unwrap().memory =
-                    procinfo::pid::statm(std::process::id().try_into().unwrap())
-                        .unwrap()
-                        .resident;
-                own_state.lock().unwrap().jobs = server_count.lock().unwrap().len();
+                let jobs = own_state.lock().unwrap().jobs.lock().unwrap().clone();
+                let memory = procinfo::pid::statm(std::process::id().try_into().unwrap())
+                    .unwrap()
+                    .resident;
+                own_state.lock().unwrap().memory = memory;
 
-                let own_state = own_state.lock().unwrap().to_owned();
+                let own_state = ClientState {
+                    memory,
+                    jobs,
+                };
 
-                // send heartbeat
                 let message = Message {
                     action: Action::Check((server_id.clone(), own_state)),
                 };
+
                 tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
 
                 // update clients
@@ -49,6 +63,9 @@ impl<J: Send + Sync + 'static> Escalon<J> {
                 for id in dead_clients {
                     let dead = clients.get(&id).unwrap().clone();
                     println!("{:?} is dead", dead);
+
+                    let num_jobs = dead.state.jobs.into_iter().count();
+                    println!("{} jobs from {} were lost", num_jobs, id);
 
                     clients.remove(&id);
                 }

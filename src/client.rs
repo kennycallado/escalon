@@ -2,16 +2,16 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
-pub struct Client {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Client<J> {
     pub address: SocketAddr,
     pub last_seen: i64,
     pub start_time: std::time::SystemTime,
-    pub state: ClientState,
+    pub state: ClientState<J>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct ClientState {
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct ClientState<J> {
     pub memory: usize,
-    pub jobs: usize,
+    pub jobs: J,
 }
