@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use anyhow::Result;
 use tokio::net::UdpSocket;
 
-use crate::types::ClientState;
+use crate::client::ClientState;
 use crate::Escalon;
 
 pub struct NoId;
@@ -34,13 +34,13 @@ impl EscalonBuilder<Id, Addr, Port> {
 
         let own_state = ClientState {
             memory: 0,
-            tasks: 10,
+            jobs: 10,
         };
 
         let server = Escalon {
             id: self.id.0,
             clients: Arc::new(Mutex::new(HashMap::new())),
-            count,
+            jobs: count,
             // count: self.count.0,
             own_state: Arc::new(Mutex::new(own_state)),
             socket: Arc::new(socket),

@@ -1,6 +1,9 @@
 mod builder;
+mod client;
 mod constants;
-mod types;
+mod message;
+mod handler;
+mod heartbeat;
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -9,20 +12,20 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use builder::NoId;
-use chrono::Utc;
 
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 
 use crate::builder::{EscalonBuilder, NoAddr, NoPort};
-use crate::constants::{BUFFER_SIZE, HEARTBEAT_SECS, MAX_CONNECTIONS, THRESHOLD_SECS};
-use crate::types::{Action, Client, ClientState, Message};
+use crate::client::{Client, ClientState};
+use crate::constants::{BUFFER_SIZE, MAX_CONNECTIONS};
+use crate::message::{Message, Action};
 
 #[derive(Clone)]
 pub struct Escalon<J> {
     pub id: String,
     pub clients: Arc<Mutex<HashMap<String, Client>>>,
-    pub count: Arc<Mutex<Vec<J>>>,
+    pub jobs: Arc<Mutex<Vec<J>>>,
     pub own_state: Arc<Mutex<ClientState>>,
     pub socket: Arc<UdpSocket>,
     pub start_time: std::time::SystemTime,
@@ -30,7 +33,7 @@ pub struct Escalon<J> {
     pub tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
 }
 
-impl<J: Send + Sync + 'static> Escalon<J> {
+impl<J> Escalon<J> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> EscalonBuilder<NoId, NoAddr, NoPort> {
         EscalonBuilder {
@@ -39,7 +42,9 @@ impl<J: Send + Sync + 'static> Escalon<J> {
             port: NoPort,
         }
     }
+}
 
+impl<J: Send + Sync + 'static> Escalon<J> {
     pub async fn listen(&mut self) -> Result<()> {
         // udp sender
         self.tx_sender = Some(self.to_udp()?);
@@ -71,123 +76,6 @@ impl<J: Send + Sync + 'static> Escalon<J> {
         });
 
         Ok(())
-    }
-
-    fn start_heartbeat(&self) -> Result<()> {
-        let clients = self.clients.clone();
-        let server_count = self.count.clone();
-        let server_id = self.id.clone();
-        let tx_sender = self.tx_sender.clone();
-        let own_state = self.own_state.clone();
-
-        tokio::task::spawn(async move {
-            loop {
-                // sleeps
-                tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT_SECS)).await;
-
-                // update own state
-                own_state.lock().unwrap().memory =
-                    procinfo::pid::statm(std::process::id().try_into().unwrap())
-                        .unwrap()
-                        .resident;
-                own_state.lock().unwrap().tasks = server_count.lock().unwrap().len();
-
-                let own_state = own_state.lock().unwrap().to_owned();
-
-                // send heartbeat
-                let message = Message {
-                    action: Action::Check((server_id.clone(), own_state)),
-                };
-                tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
-
-                // update clients
-                let mut clients = clients.lock().unwrap();
-                let now = Utc::now().timestamp();
-
-                // detect dead clients
-                // were update on handle_action
-                let dead_clients = clients
-                    .iter()
-                    .filter(|(_, client)| now - client.last_seen > THRESHOLD_SECS)
-                    .map(|(id, _)| id.clone())
-                    .collect::<Vec<String>>();
-
-                for id in dead_clients {
-                    let dead = clients.get(&id).unwrap().clone();
-                    println!("{:?} is dead", dead);
-
-                    clients.remove(&id);
-                }
-            }
-        });
-
-        Ok(())
-    }
-
-    fn handle_action(&self) -> Result<Sender<(Message, SocketAddr)>> {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<(Message, SocketAddr)>(MAX_CONNECTIONS);
-
-        let clients = self.clients.clone();
-        let server_id = self.id.clone();
-        let server_start_time = self.start_time;
-        let tx_sender = self.tx_sender.clone();
-
-        tokio::task::spawn(async move {
-            while let Some((msg, addr)) = rx.recv().await {
-                match msg.action {
-                    Action::Join((id, start_time)) => {
-                        if id != server_id {
-                            if !clients.lock().unwrap().contains_key(&id) {
-                                let message = Message {
-                                    action: Action::Join((
-                                        server_id.clone(),
-                                        server_start_time,
-                                    )),
-                                };
-
-                                tx_sender
-                                    .as_ref()
-                                    .unwrap()
-                                    .send((message, Some(addr)))
-                                    .await
-                                    .unwrap();
-                            }
-
-                            insert(&mut clients.lock().unwrap(), id.clone(), start_time, addr);
-                        }
-                    }
-                    Action::Check((id, state)) => {
-                        if id != server_id {
-                            update(&mut clients.lock().unwrap(), id.clone(), state);
-                        }
-                    }
-                }
-            }
-
-            #[rustfmt::skip]
-            fn insert(clients: &mut HashMap<String, Client>, id: String, start_time: std::time::SystemTime, addr: SocketAddr) {
-                clients
-                    .entry(id)
-                    .or_insert(Client {
-                        start_time,
-                        address: addr,
-                        last_seen: Utc::now().timestamp(),
-                        state: ClientState { memory: 0, tasks: 0 },
-                    });
-            }
-
-            #[rustfmt::skip]
-            fn update(clients: &mut HashMap<String, Client>, id: String, state: ClientState) {
-                clients
-                    .entry(id)
-                    .and_modify(|client| {
-                        client.last_seen = Utc::now().timestamp();
-                        client.state = state;
-                    });
-            }
-        });
-
-        Ok(tx)
     }
 
     fn to_udp(&self) -> Result<Sender<(Message, Option<SocketAddr>)>> {
