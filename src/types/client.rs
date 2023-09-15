@@ -12,6 +12,6 @@ pub struct Client<J> {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct ClientState<J> {
-    pub memory: usize,
+    // pub memory: usize,
     pub jobs: J,
 }

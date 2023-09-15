@@ -71,7 +71,10 @@ impl<J: IntoIterator
                         start_time,
                         address: addr,
                         last_seen: Utc::now().timestamp(),
-                        state: ClientState { memory: 0, jobs: Default::default() },
+                        state: ClientState {
+                            // memory: 0,
+                            jobs: Default::default()
+                        },
                     });
             }
 

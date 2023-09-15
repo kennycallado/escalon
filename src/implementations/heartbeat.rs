@@ -26,19 +26,29 @@ impl<J: IntoIterator
         let own_state = self.own_state.clone();
 
         tokio::task::spawn(async move {
+            // needed for procfs
+            // let process = procfs::process::Process::myself().unwrap();
+
             loop {
                 // sleeps
                 tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT_SECS)).await;
 
                 // update own state
                 let jobs = own_state.lock().unwrap().jobs.lock().unwrap().clone();
-                let memory = procinfo::pid::statm(std::process::id().try_into().unwrap())
-                    .unwrap()
-                    .resident;
-                own_state.lock().unwrap().memory = memory;
+
+                //
+                // get memory stats
+                //
+                // let memroy_stats: usize = memory_stats::memory_stats().unwrap().physical_mem / 1024;
+                // let procfs: u64 = process.status().unwrap().vmrss.unwrap();
+                // let memory_procinfo = procinfo::pid::statm(std::process::id().try_into().unwrap())
+                //     .unwrap()
+                //     .resident;
+                // own_state.lock().unwrap().memory = memory;
+                //
 
                 let own_state = ClientState {
-                    memory,
+                    // memory,
                     jobs,
                 };
 

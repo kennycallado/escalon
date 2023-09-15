@@ -30,7 +30,7 @@ impl EscalonBuilder<Id, Addr, Port> {
         socket.set_broadcast(true)?;
 
         let own_state = ClientState {
-            memory: 0,
+            // memory: 0,
             jobs,
         };
 
