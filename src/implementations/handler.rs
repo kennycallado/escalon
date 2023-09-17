@@ -1,8 +1,8 @@
+use anyhow::Result;
+use chrono::Utc;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use tokio::sync::mpsc::Sender;
-use anyhow::Result;
-use chrono::Utc;
 
 use crate::constants::MAX_CONNECTIONS;
 use crate::types::message::{Action, Message};
@@ -61,21 +61,16 @@ impl Escalon {
                             update(&mut escalon.clients.lock().unwrap(), id.clone(), jobs);
                         }
                     },
-                    // Action::UpdateDead((id, client)) => {
-                    //     if id != escalon.id {
-                    //         let addr = client.address;
-                    //         let dead_id = escalon
-                    //             .clients
-                    //             .lock()
-                    //             .unwrap()
-                    //             .clone()
-                    //             .into_iter()
-                    //             .find(|(_, client)| client.address == addr)
-                    //             .unwrap().0;
+                    Action::FoundDead((sender_id, dead_id)) => {
+                        if sender_id != escalon.id {
+                            // if the sender is younger than self ignore
+                            if escalon.clients.lock().unwrap().get(&sender_id).unwrap().start_time > escalon.start_time {
+                                continue;
+                            }
 
-                    //         escalon.clients.lock().unwrap().remove(&dead_id);
-                    //     }
-                    // }
+                            escalon.clients.lock().unwrap().remove(&dead_id);
+                        }
+                    }
                 }
             }
 

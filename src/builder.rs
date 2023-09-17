@@ -26,6 +26,7 @@ pub struct EscalonBuilder<I, A, P, C> {
     pub port: P,
     pub count: C,
 }
+
 impl EscalonBuilder<Id, Addr, Port, Count> {
     pub async fn build(self) -> Result<Escalon> {
         let socket = UdpSocket::bind(format!("{:?}:{}", self.addr.0, self.port.0)).await?;
@@ -73,7 +74,10 @@ impl<I, A, P, C> EscalonBuilder<I, A, P, C> {
         }
     }
 
-    pub fn set_count(self, count: impl Fn() -> usize + Send + Sync + 'static) -> EscalonBuilder<I, A, P, Count> {
+    pub fn set_count(
+        self,
+        count: impl Fn() -> usize + Send + Sync + 'static,
+    ) -> EscalonBuilder<I, A, P, Count> {
         EscalonBuilder {
             id: self.id,
             addr: self.addr,

@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 
-use crate::builder::{EscalonBuilder, NoId, NoAddr, NoPort, NoCount};
+use crate::builder::{EscalonBuilder, NoAddr, NoCount, NoId, NoPort};
 use crate::types::client::{Client, ClientState};
 use crate::types::message::Message;
 

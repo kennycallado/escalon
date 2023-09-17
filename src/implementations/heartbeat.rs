@@ -39,16 +39,16 @@ impl Escalon {
                     .map(|(id, _)| id.clone())
                     .collect::<Vec<String>>();
 
-                for id in dead_clients {
-                    let dead = escalon.clients.lock().unwrap().get(&id).unwrap().clone();
+                for dead_id in dead_clients {
+                    // let dead = escalon.clients.lock().unwrap().get(&dead_id).unwrap().clone();
 
-                    // // send UpdateDead to all
-                    // let message = Message {
-                    //     action: Action::UpdateDead((escalon.id.clone(), dead)),
-                    // };
-                    // escalon.tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
+                    // send UpdateDead to all
+                    let message = Message {
+                        action: Action::FoundDead((escalon.id.clone(), dead_id.clone())),
+                    };
+                    escalon.tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
 
-                    // escalon.redistribute_jobs(id.clone()).await;
+                    escalon.redistribute_jobs(dead_id).await;
                 }
             }
         });
@@ -60,7 +60,6 @@ impl Escalon {
         // Wait for other nodes to inform about the dead client.
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
-        // Lock the clients mutex once.
         let dead;
         {
             dead = self.clients.lock().unwrap().remove(&id);
@@ -70,7 +69,6 @@ impl Escalon {
         let clients = self.clients.lock().unwrap();
 
         if let Some(dead) = dead {
-
             // Extract the dead client's state.
             let n_jobs_dead = dead.state.jobs;
             let n_jobs_own = self.own_state.as_ref()();
@@ -91,6 +89,49 @@ impl Escalon {
 
             println!("Total clients: {}", n_clients); // includes the current client
 
+            if n_clients == 1 {
+                println!("All jobs to self.");
+
+                return ;
+            }
+
+            // create a vector of clients sorted by number of jobs and include self
+            let mut clients_sorted = clients
+                .iter()
+                .map(|(id, client)| (id.clone(), client.state.jobs))
+                .collect::<Vec<(String, usize)>>();
+            clients_sorted.push((self.id.clone(), n_jobs_own));
+            clients_sorted.sort_by(|(_, a), (_, b)| b.cmp(a).reverse());
+
+            // redistribute jobs from dead to clients with less jobs
+            // and print a message for each client with the number
+            // of jobs to add and where to start
+
+            let mut n_jobs_to_redistribute = n_jobs_dead;
+            let mut _n_jobs_redistributed = 0;
+            let mut n_jobs_to_add;
+            let mut next = 1;
+
+            for (id, n_jobs) in clients_sorted {
+                if n_jobs_to_redistribute == 0 {
+                    break;
+                }
+
+                n_jobs_to_add = n_jobs_avg - n_jobs;
+
+                if n_jobs_to_add > n_jobs_to_redistribute {
+                    n_jobs_to_add = n_jobs_to_redistribute;
+                }
+
+                n_jobs_to_redistribute -= n_jobs_to_add;
+                _n_jobs_redistributed += n_jobs_to_add;
+
+                if id == self.id { println!("Self"); }
+                println!("{}: {} jobs to add, starting at {}.", id, n_jobs_to_add, next);
+                next += n_jobs_to_add;
+            }
+
+            println!("Redistribution complete.");
         } else {
             println!("Client with ID {} not found.", id);
         }

@@ -14,7 +14,7 @@ async fn test_server_creation_and_listen() -> Result<()> {
         .set_id("test")
         .set_addr("127.0.0.1".parse().unwrap())
         .set_port(0) // Use a random available port
-        .set_count(move || { blah.len() })
+        .set_count(move || blah.len())
         .build()
         .await?;
 
@@ -35,7 +35,7 @@ async fn test_bind_twice() {
         .set_id("test")
         .set_addr("127.0.0.1".parse().unwrap())
         .set_port(0) // Use a random available port
-        .set_count(move || { blah.len() })
+        .set_count(move || blah.len())
         .build()
         .await
         .unwrap();
@@ -56,7 +56,7 @@ async fn test_server_invalid_port() {
         .set_id("test")
         .set_addr("127.0.0.1".parse().unwrap())
         .set_port(1)
-        .set_count(move || { blah.len() })
+        .set_count(move || blah.len())
         .build()
         .await
         .unwrap();
@@ -75,7 +75,7 @@ async fn test_intercept_before_send_join() -> Result<()> {
         .set_id("test")
         .set_addr("127.0.0.1".parse().unwrap())
         .set_port(0) // Use a random available port
-        .set_count(move || { blah.len() })
+        .set_count(move || blah.len())
         .build()
         .await?;
 
@@ -85,8 +85,7 @@ async fn test_intercept_before_send_join() -> Result<()> {
 
     assert!(server.send_join().is_ok());
 
-    let received_message: (Message, Option<SocketAddr>) =
-        rx_sender.recv().await.unwrap();
+    let received_message: (Message, Option<SocketAddr>) = rx_sender.recv().await.unwrap();
 
     let id = server.id;
     let start_time = server.start_time;
@@ -105,7 +104,7 @@ async fn test_intercept_before_hertbeat() -> Result<()> {
         .set_id("test")
         .set_addr("127.0.0.1".parse().unwrap())
         .set_port(0)
-        .set_count(move || { blah.len() })
+        .set_count(move || blah.len())
         .build()
         .await?;
 
@@ -115,8 +114,7 @@ async fn test_intercept_before_hertbeat() -> Result<()> {
 
     assert!(server.start_heartbeat().is_ok());
 
-    let received_message: (Message, Option<SocketAddr>) =
-        rx_sender.recv().await.unwrap();
+    let received_message: (Message, Option<SocketAddr>) = rx_sender.recv().await.unwrap();
 
     assert_eq!(received_message.1, None);
     assert!(matches!(received_message.0.action, Action::Check(..)));

@@ -11,7 +11,7 @@ services:
       - ./target/release/examples/base:/usr/bin/escalon
     command: [ "escalon" ]
     deploy:
-      replicas: 1
+      replicas: 16
 
   cron-2:
     image: debian:latest
@@ -24,4 +24,4 @@ services:
       - ./target/release/examples/base:/usr/bin/escalon
     command: [ "escalon" ]
     deploy:
-      replicas: 1
+      replicas: 16

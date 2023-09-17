@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
         .set_id(iden)
         .set_addr(addr)
         .set_port(port)
-        .set_count(move || { cloned_jobs.lock().unwrap().len() })
+        .set_count(move || cloned_jobs.lock().unwrap().len())
         .build()
         .await?;
 

@@ -1,14 +1,11 @@
+# Escalon
+
+**Warning**:
+While passing the count of jobs (via `set_count(move || {})`) instead of a vector of jobs, we rely on the upper layer to utilize a database, but our choices are constrained by the UDP buffer size.
 
 ## TODO:
-- [ ] Determinate memory usage
-- [ ] derive Clone para server...
+- [ ] Staffs
 
 ## Implementation tests:
 - docker compose up
   - then kill one
-- by shell
-``` bash
-echo $RANDOM | xargs -I[] echo '{ "action": { "Join": ["'[]'", '$(date +%s)'] } }' | socat - udp-datagram:192.168.1.255:65056,broadcast
-# or
-rand=$(echo $RANDOM); while true;do sleep 5; echo '{ "action": { "Check": ["'$rand'", {"memory": '1757', "tasks": 3}] } }' | socat - udp-datagram:192.168.1.255:65056,broadcast ;done
-```
