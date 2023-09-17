@@ -1,87 +1,98 @@
-use std::fmt::Debug;
-
 use anyhow::Result;
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
 
 use crate::constants::{HEARTBEAT_SECS, THRESHOLD_SECS};
-use crate::types::client::ClientState;
 use crate::types::message::{Action, Message};
 use crate::Escalon;
 
 #[rustfmt::skip]
-impl<J: IntoIterator
-        + Default
-        + Clone
-        + Debug
-        + for<'a> Deserialize<'a>
-        + Serialize
-        + Send
-        + Sync
-        + 'static > Escalon<J> {
+// impl<J: IntoIterator
+//         + Default
+//         + Clone
+//         + Debug
+//         + for<'a> Deserialize<'a>
+//         + Serialize
+//         + Send
+//         + Sync
+//         + 'static > Escalon {
+impl Escalon {
     pub fn start_heartbeat(&self) -> Result<()> {
-        let clients = self.clients.clone();
-        let server_id = self.id.clone();
-        let tx_sender = self.tx_sender.clone();
-        let own_state = self.own_state.clone();
+        let escalon = self.clone();
 
         tokio::task::spawn(async move {
-            // needed for procfs
-            // let process = procfs::process::Process::myself().unwrap();
-
+            let escalon = escalon;
             loop {
-                // sleeps
                 tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT_SECS)).await;
 
-                // update own state
-                let jobs = own_state.lock().unwrap().jobs.lock().unwrap().clone();
-
-                //
-                // get memory stats
-                //
-                // let memroy_stats: usize = memory_stats::memory_stats().unwrap().physical_mem / 1024;
-                // let procfs: u64 = process.status().unwrap().vmrss.unwrap();
-                // let memory_procinfo = procinfo::pid::statm(std::process::id().try_into().unwrap())
-                //     .unwrap()
-                //     .resident;
-                // own_state.lock().unwrap().memory = memory;
-                //
-
-                let own_state = ClientState {
-                    // memory,
-                    jobs,
-                };
+                // send current state of the node
+                let jobs = escalon.own_state.as_ref();
 
                 let message = Message {
-                    action: Action::Check((server_id.clone(), own_state)),
+                    action: Action::Check((escalon.id.clone(), jobs())),
                 };
-
-                tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
-
-                // update clients
-                let mut clients = clients.lock().unwrap();
-                let now = Utc::now().timestamp();
+                escalon.tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
 
                 // detect dead clients
-                // were update on handle_action
-                let dead_clients = clients
+                let dead_clients = escalon.clients.lock().unwrap()
                     .iter()
-                    .filter(|(_, client)| now - client.last_seen > THRESHOLD_SECS)
+                    .filter(|(_, client)| Utc::now().timestamp() - client.last_seen > THRESHOLD_SECS)
                     .map(|(id, _)| id.clone())
                     .collect::<Vec<String>>();
 
                 for id in dead_clients {
-                    let dead = clients.get(&id).unwrap().clone();
-                    println!("{:?} is dead", dead);
+                    let dead = escalon.clients.lock().unwrap().get(&id).unwrap().clone();
 
-                    let num_jobs = dead.state.jobs.into_iter().count();
-                    println!("{} jobs from {} were lost", num_jobs, id);
+                    // // send UpdateDead to all
+                    // let message = Message {
+                    //     action: Action::UpdateDead((escalon.id.clone(), dead)),
+                    // };
+                    // escalon.tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
 
-                    clients.remove(&id);
+                    // escalon.redistribute_jobs(id.clone()).await;
                 }
             }
         });
 
         Ok(())
+    }
+
+    pub async fn redistribute_jobs(&self, id: String) {
+        // Wait for other nodes to inform about the dead client.
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+
+        // Lock the clients mutex once.
+        let dead;
+        {
+            dead = self.clients.lock().unwrap().remove(&id);
+
+        }
+
+        let clients = self.clients.lock().unwrap();
+
+        if let Some(dead) = dead {
+
+            // Extract the dead client's state.
+            let n_jobs_dead = dead.state.jobs;
+            let n_jobs_own = self.own_state.as_ref()();
+            let n_jobs_clients = clients
+                .iter()
+                .fold(0, |acc, (_, client)| { acc + client.state.jobs });
+
+            let n_jobs_total = n_jobs_clients + n_jobs_own + n_jobs_dead;
+
+            // Calculate the average number of jobs per client.
+            let n_clients = clients.len() + 1; // Add 1 for the current client.
+            let n_jobs_avg = n_jobs_total / n_clients;
+
+            println!("Dead jobs: {}", n_jobs_dead);
+            println!("Own jobs: {}", n_jobs_own);
+            println!("Total jobs: {}", n_jobs_clients);
+            println!("Average jobs per client: {}", n_jobs_avg);
+
+            println!("Total clients: {}", n_clients); // includes the current client
+
+        } else {
+            println!("Client with ID {} not found.", id);
+        }
     }
 }

@@ -1,15 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::client::ClientState;
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-pub struct Message<J> {
-    pub action: Action<J>,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Message {
+    pub action: Action,
 }
 
+///
+/// String always refers to the emisor of the message
+///
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-pub enum Action<J> {
+pub enum Action {
     Join((String, std::time::SystemTime)),
-    Check((String, ClientState<J>)),
+    Check((String, usize)),
+    // UpdateDead((String, Client<J>)),
     // Test(u64),
 }

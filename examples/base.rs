@@ -23,12 +23,14 @@ async fn main() -> Result<()> {
     let iden = std::env::var("HOSTNAME").unwrap_or("server".to_string());
 
     let jobs: Arc<Mutex<Vec<MyStruct>>> = Arc::new(Mutex::new(Vec::new()));
+    let cloned_jobs = jobs.clone();
 
-    let mut udp_server = Escalon::<MyStruct>::new()
+    let mut udp_server = Escalon::new()
         .set_id(iden)
         .set_addr(addr)
         .set_port(port)
-        .build(jobs.clone())
+        .set_count(move || { cloned_jobs.lock().unwrap().len() })
+        .build()
         .await?;
 
     tokio::spawn(async move {
