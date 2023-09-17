@@ -19,6 +19,7 @@ use crate::builder::{EscalonBuilder, NoAddr, NoPort};
 use crate::types::client::{Client, ClientState};
 use crate::types::message::Message;
 
+#[derive(Clone)]
 pub struct Escalon<J> {
     pub id: String,
     pub clients: Arc<Mutex<HashMap<String, Client<J>>>>,
