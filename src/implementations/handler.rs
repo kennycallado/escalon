@@ -63,15 +63,22 @@ impl Escalon {
                     },
                     Action::FoundDead((sender_id, dead_id)) => {
                         if sender_id != escalon.id {
-                            // if the sender is younger than self ignore
-                            if escalon.clients.lock().unwrap().get(&sender_id).unwrap().start_time > escalon.start_time {
-                                continue;
-                            }
+                            let clients = escalon.clients.lock().unwrap().clone();
 
-                            escalon.clients.lock().unwrap().remove(&dead_id);
+                            if let Some(sender) = clients.get(&sender_id) {
+                                if sender.start_time < escalon.start_time {
+                                    remove(&mut escalon.clients.lock().unwrap(), dead_id.clone());
+                                }
+
+                            }
                         }
                     }
                 }
+            }
+
+            #[rustfmt::skip]
+            fn remove(clients: &mut HashMap<String, Client>, id: String) {
+                clients.remove(&id);
             }
 
             #[rustfmt::skip]

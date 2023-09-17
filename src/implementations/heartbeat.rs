@@ -20,7 +20,7 @@ impl Escalon {
         let escalon = self.clone();
 
         tokio::task::spawn(async move {
-            let escalon = escalon;
+            let escalon = escalon.clone();
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(HEARTBEAT_SECS)).await;
 
@@ -42,13 +42,18 @@ impl Escalon {
                 for dead_id in dead_clients {
                     // let dead = escalon.clients.lock().unwrap().get(&dead_id).unwrap().clone();
 
+                    println!("Dead client: {}", dead_id);
+
                     // send UpdateDead to all
                     let message = Message {
                         action: Action::FoundDead((escalon.id.clone(), dead_id.clone())),
                     };
                     escalon.tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
 
-                    escalon.redistribute_jobs(dead_id).await;
+                    let escalon = escalon.clone();
+                    tokio::task::spawn(async move {
+                        escalon.redistribute_jobs(dead_id).await;
+                    });
                 }
             }
         });
@@ -58,15 +63,11 @@ impl Escalon {
 
     pub async fn redistribute_jobs(&self, id: String) {
         // Wait for other nodes to inform about the dead client.
-        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(THRESHOLD_SECS.try_into().unwrap())).await;
+        // tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
-        let dead;
-        {
-            dead = self.clients.lock().unwrap().remove(&id);
-
-        }
-
-        let clients = self.clients.lock().unwrap();
+        let dead = self.clients.lock().unwrap().remove(&id);
+        let clients = self.clients.lock().unwrap().clone();
 
         if let Some(dead) = dead {
             // Extract the dead client's state.
