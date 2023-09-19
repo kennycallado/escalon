@@ -3,19 +3,9 @@ use std::net::SocketAddr;
 use tokio::sync::mpsc::Sender;
 
 use crate::constants::{BUFFER_SIZE, MAX_CONNECTIONS};
-use crate::types::message::{Action, Message};
+use crate::types::message::{Action, JoinContent, Message};
 use crate::Escalon;
 
-#[rustfmt::skip]
-// impl<J: IntoIterator
-//         + Default
-//         + Clone
-//         + Debug
-//         + for<'a> Deserialize<'a>
-//         + Serialize
-//         + Send
-//         + Sync
-//         + 'static > Escalon {
 impl Escalon {
     pub async fn listen(&mut self) -> Result<()> {
         // udp sender
@@ -24,6 +14,7 @@ impl Escalon {
         self.send_join()?;
         // heartbeat
         self.start_heartbeat()?;
+        self.scanner_dead()?;
         // handler
         self.tx_handler = Some(self.handle_action()?);
         // udp reciver
@@ -36,14 +27,15 @@ impl Escalon {
 
     pub fn send_join(&self) -> Result<()> {
         let tx = self.tx_sender.clone();
-        let server_id = self.id.clone();
-        let server_start_time = self.start_time;
+
+        let message = Message {
+            action: Action::Join(JoinContent {
+                sender_id: self.id.clone(),
+                start_time: self.start_time,
+            }),
+        };
 
         tokio::task::spawn(async move {
-            let message = Message {
-                action: Action::Join((server_id, server_start_time)),
-            };
-
             tx.as_ref().unwrap().send((message, None)).await.unwrap();
         });
 
@@ -55,7 +47,7 @@ impl Escalon {
         let (tx, mut rx) =
             tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
 
-        tokio::task::spawn(async move {
+        tokio::spawn(async move {
             while let Some((msg, addr)) = rx.recv().await {
                 let bytes = match serde_json::to_vec(&msg) {
                     Ok(bytes) => bytes,
@@ -83,7 +75,7 @@ impl Escalon {
         let socket = self.socket.clone();
         let tx = self.tx_handler.clone();
 
-        tokio::task::spawn(async move {
+        tokio::spawn(async move {
             let mut buf = [0u8; BUFFER_SIZE];
 
             loop {
@@ -97,7 +89,7 @@ impl Escalon {
                     }
                 };
 
-                tx.clone().unwrap().send((message, addr)).await.unwrap();
+                tx.as_ref().unwrap().send((message, addr)).await.unwrap();
             }
         });
 

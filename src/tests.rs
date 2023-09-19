@@ -3,7 +3,7 @@ use anyhow::Result;
 use super::*;
 
 use crate::constants::MAX_CONNECTIONS;
-use crate::types::message::Action;
+use crate::types::message::{Action, JoinContent};
 
 #[tokio::test]
 async fn test_server_creation_and_listen() -> Result<()> {
@@ -14,9 +14,10 @@ async fn test_server_creation_and_listen() -> Result<()> {
         .set_id("test")
         .set_addr("127.0.0.1".parse().unwrap())
         .set_port(0) // Use a random available port
-        .set_count(move || blah.len())
+        .set_count_jobs(move || blah.len())
+        .set_take_jobs(move |_, _, _| {})
         .build()
-        .await?;
+        .await;
 
     assert!(server.listen().await.is_ok());
 
@@ -35,10 +36,10 @@ async fn test_bind_twice() {
         .set_id("test")
         .set_addr("127.0.0.1".parse().unwrap())
         .set_port(0) // Use a random available port
-        .set_count(move || blah.len())
+        .set_count_jobs(move || blah.len())
+        .set_take_jobs(move |_, _, _| {})
         .build()
-        .await
-        .unwrap();
+        .await;
 
     assert!(server.listen().await.is_ok());
     tokio::net::UdpSocket::bind(server.socket.local_addr().unwrap()).await.unwrap();
@@ -56,10 +57,10 @@ async fn test_server_invalid_port() {
         .set_id("test")
         .set_addr("127.0.0.1".parse().unwrap())
         .set_port(1)
-        .set_count(move || blah.len())
+        .set_count_jobs(move || blah.len())
+        .set_take_jobs(move |_, _, _| {})
         .build()
-        .await
-        .unwrap();
+        .await;
 
     assert!(server.listen().await.is_ok());
 
@@ -75,9 +76,10 @@ async fn test_intercept_before_send_join() -> Result<()> {
         .set_id("test")
         .set_addr("127.0.0.1".parse().unwrap())
         .set_port(0) // Use a random available port
-        .set_count(move || blah.len())
+        .set_count_jobs(move || blah.len())
+        .set_take_jobs(move |_, _, _| {})
         .build()
-        .await?;
+        .await;
 
     let (tx_sender, mut rx_sender) =
         tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
@@ -90,7 +92,13 @@ async fn test_intercept_before_send_join() -> Result<()> {
     let id = server.id;
     let start_time = server.start_time;
     assert_eq!(received_message.1, None);
-    assert_eq!(received_message.0.action, Action::Join((id, start_time)));
+    assert_eq!(
+        received_message.0.action,
+        Action::Join(JoinContent {
+            sender_id: id,
+            start_time
+        })
+    );
 
     Ok(())
 }
@@ -104,9 +112,10 @@ async fn test_intercept_before_hertbeat() -> Result<()> {
         .set_id("test")
         .set_addr("127.0.0.1".parse().unwrap())
         .set_port(0)
-        .set_count(move || blah.len())
+        .set_count_jobs(move || blah.len())
+        .set_take_jobs(move |_, _, _| {})
         .build()
-        .await?;
+        .await;
 
     let (tx_sender, mut rx_sender) =
         tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
@@ -123,9 +132,13 @@ async fn test_intercept_before_hertbeat() -> Result<()> {
 }
 
 // IT DOESN'T WORK
+// #[tokio::test(flavor = "multi_thread")]
 // #[tokio::test]
-// #[should_panic]
-// async fn test_intercept_after_send_join() {
+// async fn test_intercept_after_send_join() -> Result<()> {
+
+//     // cargo test -- --nocapture
+//     // cargo watch "test -- --nocapture"
+
 //     let blah = vec![1, 2, 3];
 //     let blah = Arc::new(blah);
 
@@ -134,16 +147,14 @@ async fn test_intercept_before_hertbeat() -> Result<()> {
 //         .set_addr("127.0.0.1".parse().unwrap())
 //         .set_port(0)
 //         .set_count(move || { blah.len() })
+//         .set_add_jobs(move |_, _, _| {})
 //         .build()
-//         .await
-//         .unwrap();
+//         .await;
 
 //     let (tx_handler, mut rx_handler) =
 //         tokio::sync::mpsc::channel::<(Message, SocketAddr)>(MAX_CONNECTIONS);
 
 //     server.tx_handler = Some(tx_handler);
-
-//     server.listen().await.unwrap();
 
 //     // let id = server.id;
 //     // let start_time = server.start_time;
@@ -151,8 +162,16 @@ async fn test_intercept_before_hertbeat() -> Result<()> {
 //     //     // assert_eq!(message.0.action, Action::Join((id, start_time)));
 //     //     return Ok(());
 //     // };
+//
+//     let channel = tokio::task::spawn(async move {
+//         println!("Spawned task");
+//         if let Some((msg, _addr)) = rx_handler.recv().await {
+//             println!("Received message: {:?}", msg);
+//         };
+//         println!("Finished task");
+//     });
 
-//     if let None = rx_handler.recv().await {
-//         panic!("blah");
-//     };
+//     let (_,_) = tokio::join!(channel, server.listen());
+
+//     Ok(())
 // }
