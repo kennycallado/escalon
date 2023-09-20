@@ -3,6 +3,8 @@ mod constants;
 mod implementations;
 mod types;
 
+pub use tokio;
+
 #[cfg(test)]
 mod tests;
 
