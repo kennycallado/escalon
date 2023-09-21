@@ -19,9 +19,9 @@ use crate::builder::{NoAddJobs, NoAddr, NoCount, NoId, NoPort};
 use crate::types::client::{Client, ClientState};
 use crate::types::message::Message;
 
-type FnAddJobs = dyn Fn(&str, usize, usize) + Send + Sync;
+type FnAddJobs = dyn Fn(String, usize, usize) + Send + Sync;
 type FnCountJobs = dyn Fn() -> usize + Send + Sync;
-type Distrib = Vec<(String, String, usize, bool)>;
+type Distrib = (String, String, usize, usize, bool);
 
 #[derive(Clone)]
 pub struct EscalonFunctions {
@@ -37,7 +37,7 @@ pub struct Escalon {
     functions: EscalonFunctions,
 
     clients: Arc<Mutex<HashMap<String, Client>>>,
-    distribution: Arc<Mutex<Distrib>>,
+    distribution: Arc<Mutex<Vec<Distrib>>>,
 
     socket: Arc<UdpSocket>,
     tx_handler: Option<Sender<(Message, SocketAddr)>>,

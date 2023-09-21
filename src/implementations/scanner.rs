@@ -48,7 +48,7 @@ impl Escalon {
         Ok(())
     }
 
-    pub fn redistribute_jobs(&self, dead_id: String) {
+    fn redistribute_jobs(&self, dead_id: String) {
         if self.should_skip_redistribution(&dead_id) {
             return;
         }
@@ -59,7 +59,7 @@ impl Escalon {
             None => eprintln!("Client with ID {} not found.", dead_id),
             Some(dead) => {
                 let (n_jobs_dead, n_jobs_own, n_jobs_clients) =
-                    self.calculate_job_counts(&dead);
+                    self.calculate_job_counts_with_dead(&dead);
 
                 let n_jobs_total = n_jobs_clients + n_jobs_own + n_jobs_dead;
 
@@ -74,7 +74,6 @@ impl Escalon {
                 // println!("Total clients: {}", n_clients);
 
                 let mut clients_sorted = self.sort_clients_by_jobs(n_jobs_own);
-
                 let mut n_jobs_to_redistribute = n_jobs_dead;
                 let mut _n_jobs_redistributed = 0;
                 let mut start_at = 1;
@@ -125,24 +124,29 @@ impl Escalon {
         clients.remove(dead_id)
     }
 
-    fn calculate_job_counts(&self, dead: &Client) -> (usize, usize, usize) {
+    fn calculate_job_counts_with_dead(&self, dead: &Client) -> (usize, usize, usize) {
         let n_jobs_dead = dead.state.jobs;
-        let n_jobs_own = self.functions.count.as_ref()();
-        let n_jobs_clients = self.calculate_total_jobs_in_clients();
+        let (n_jobs_own, n_jobs_clients) = self.calculate_job_counts();
         (n_jobs_dead, n_jobs_own, n_jobs_clients)
     }
 
-    fn calculate_total_jobs_in_clients(&self) -> usize {
+    pub fn calculate_job_counts(&self) -> (usize, usize) {
+        let n_jobs_own = self.functions.count.as_ref()();
+        let n_jobs_clients = self.calculate_total_jobs_in_clients();
+        (n_jobs_own, n_jobs_clients)
+    }
+
+    pub fn calculate_total_jobs_in_clients(&self) -> usize {
         self.clients.lock().unwrap().iter().fold(0, |acc, (_, client)| acc + client.state.jobs)
     }
 
-    fn calculate_average_jobs_per_client(&self, n_jobs_total: usize) -> usize {
+    pub fn calculate_average_jobs_per_client(&self, n_jobs_total: usize) -> usize {
         let n_clients = self.clients.lock().unwrap().len() + 1;
 
         n_jobs_total / n_clients
     }
 
-    fn sort_clients_by_jobs(&self, n_jobs_own: usize) -> Vec<(String, usize, SocketAddr)> {
+    pub fn sort_clients_by_jobs(&self, n_jobs_own: usize) -> Vec<(String, usize, SocketAddr)> {
         let mut clients_sorted;
         {
             clients_sorted = self
@@ -159,7 +163,7 @@ impl Escalon {
         clients_sorted
     }
 
-    fn calculate_jobs_to_add(
+    pub fn calculate_jobs_to_add(
         &self,
         n_jobs: usize,
         n_jobs_avg: usize,
@@ -172,9 +176,9 @@ impl Escalon {
         n_jobs_to_add
     }
 
-    fn process_job_redistribution(
+    pub fn process_job_redistribution(
         &self,
-        dead_id: &str,
+        from_client: &str,
         client_id: &str,
         address: &SocketAddr,
         n_jobs_to_add: usize,
@@ -182,25 +186,37 @@ impl Escalon {
         messages: &mut Vec<(Message, SocketAddr)>,
     ) {
         if client_id == self.id {
-            self.functions.add_from.clone().as_ref()(dead_id, start_at, n_jobs_to_add);
+            self.functions.add_from.clone().as_ref()(from_client.to_string(), start_at, n_jobs_to_add);
         } else {
             let message = Message::new_take_jobs(
                 self.id.clone(),
-                dead_id.to_string(),
+                from_client.to_string(),
                 start_at,
                 n_jobs_to_add,
             );
             messages.push((message, *address));
-            self.update_distribution(dead_id, client_id, n_jobs_to_add);
+            self.update_distribution(from_client, client_id, start_at, n_jobs_to_add);
         }
     }
 
-    fn update_distribution(&self, dead_id: &str, client_id: &str, n_jobs_to_add: usize) {
+    fn update_distribution(
+        &self,
+        dead_id: &str,
+        client_id: &str,
+        start_at: usize,
+        n_jobs_to_add: usize,
+    ) {
         let mut distribution = self.distribution.lock().unwrap();
-        distribution.push((client_id.to_string(), dead_id.to_string(), n_jobs_to_add, false));
+        distribution.push((
+            client_id.to_string(),
+            dead_id.to_string(),
+            start_at,
+            n_jobs_to_add,
+            false,
+        ));
     }
 
-    fn spawn_job_redistribution_task(&self, messages: Vec<(Message, SocketAddr)>) {
+    pub fn spawn_job_redistribution_task(&self, messages: Vec<(Message, SocketAddr)>) {
         let tx_sender = self.tx_sender.clone();
         tokio::task::spawn(async move {
             for (message, addr) in messages {

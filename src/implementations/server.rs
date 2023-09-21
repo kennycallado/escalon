@@ -12,9 +12,12 @@ impl Escalon {
         self.tx_sender = Some(self.to_udp()?);
         // join
         self.send_join()?;
+
         // heartbeat
         self.start_heartbeat()?;
+        self.balancer()?;
         self.scanner_dead()?;
+
         // handler
         self.tx_handler = Some(self.handle_action()?);
         // udp reciver

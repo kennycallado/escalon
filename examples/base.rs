@@ -21,6 +21,7 @@ async fn main() -> Result<()> {
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0".to_string()).parse::<IpAddr>()?;
     let port = std::env::var("PORT").unwrap_or("65056".to_string()).parse::<u16>()?;
     let iden = std::env::var("HOSTNAME").unwrap_or("server".to_string());
+    let gran = std::env::var("GENRANGE").unwrap_or("10".to_string()).parse::<u16>()?;
 
     let jobs: Arc<Mutex<Vec<MyStruct>>> = Arc::new(Mutex::new(Vec::new()));
     let cloned_jobs_count = jobs.clone();
@@ -48,7 +49,7 @@ async fn main() -> Result<()> {
         // }
 
         loop {
-            for _ in 0..rand::thread_rng().gen_range(1..10) {
+            for _ in 0..rand::thread_rng().gen_range(1..gran) {
                 let job = MyStruct {
                     job_id: Uuid::new_v4(),
                     task: "test".to_string(),

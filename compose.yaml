@@ -7,6 +7,7 @@ services:
       ADDR: "0.0.0.0"
       PORT: "65056"
       RUST_BACKTRACE: 1
+      GENRANGE: 20
     volumes:
       - ./target/release/examples/base:/usr/bin/escalon
     command: [ "escalon" ]
@@ -18,7 +19,6 @@ services:
     environment:
       ADDR: "0.0.0.0"
       PORT: "65056"
-      TASKS: "10"
       RUST_BACKTRACE: 1
     volumes:
       - ./target/release/examples/base:/usr/bin/escalon

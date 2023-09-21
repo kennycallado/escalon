@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::Escalon;
 use crate::{Client, ClientState};
+use crate::{Distrib, Escalon};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Message {
@@ -41,7 +41,7 @@ pub struct FoundDeadContent {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct TakeJobsContent {
     pub sender_id: String,
-    pub dead_id: String,
+    pub from_client: String,
     pub start_at: usize,
     pub jobs: usize,
 }
@@ -49,7 +49,7 @@ pub struct TakeJobsContent {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct DoneContent {
     pub sender_id: String,
-    pub dead_id: String,
+    pub from_client: String,
 }
 
 impl Message {
@@ -139,11 +139,16 @@ impl Message {
 }
 
 impl Message {
-    pub fn new_take_jobs(id: String, dead_id: String, start_at: usize, jobs: usize) -> Self {
+    pub fn new_take_jobs(
+        id: String,
+        from_client: String,
+        start_at: usize,
+        jobs: usize,
+    ) -> Self {
         Self {
             action: Action::TakeJobs(TakeJobsContent {
                 sender_id: id,
-                dead_id,
+                from_client,
                 start_at,
                 jobs,
             }),
@@ -156,9 +161,13 @@ impl Message {
         addr: SocketAddr,
         content: TakeJobsContent,
     ) {
-        escalon.functions.add_from.as_ref()(&content.dead_id, content.start_at, content.jobs);
+        escalon.functions.add_from.as_ref()(
+            content.from_client.clone(),
+            content.start_at,
+            content.jobs,
+        );
 
-        let message = Message::new_done(escalon.id.clone(), content.dead_id.clone());
+        let message = Message::new_done(escalon.id.clone(), content.from_client.clone());
         escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
     }
 }
@@ -168,17 +177,30 @@ impl Message {
         Self {
             action: Action::Done(DoneContent {
                 sender_id: id,
-                dead_id: dead_id.clone(),
+                from_client: dead_id.clone(),
             }),
         }
     }
 
     pub fn handle_done(&self, escalon: &Escalon, content: DoneContent) {
+        if content.from_client == escalon.id {
+            let temp = escalon.distribution.lock().unwrap();
+            let info: &Distrib = temp
+                .iter()
+                .find(|(sender, from_client, _, _, _)| {
+                    *sender == content.sender_id && *from_client == escalon.id
+                })
+                .unwrap();
+
+            // call function to remove
+            println!("Removing {} jobs from {}", info.3, info.1);
+        }
+
         // let dist;
         {
             let mut temp = escalon.distribution.lock().unwrap();
-            temp.retain(|(sender, dead, _, _)| {
-                !(*sender == content.sender_id && *dead == content.dead_id)
+            temp.retain(|(sender, form_client, _, _, _)| {
+                !(*sender == content.sender_id && *form_client == content.from_client)
             });
 
             // dist = temp;

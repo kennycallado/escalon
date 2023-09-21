@@ -64,7 +64,7 @@ impl<I, A, P, C, J> EscalonBuilder<I, A, P, C, J> {
 
     pub fn set_take_jobs(
         self,
-        add_jobs: impl Fn(&str, usize, usize) + Send + Sync + 'static,
+        add_jobs: impl Fn(String, usize, usize) + Send + Sync + 'static,
     ) -> EscalonBuilder<I, A, P, C, AddJobs> {
         EscalonBuilder {
             id: self.id,
