@@ -4,7 +4,8 @@ use std::{
 };
 
 use anyhow::Result;
-use escalon::Escalon;
+use async_trait::async_trait;
+use escalon::{Escalon, EscalonTrait};
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use tokio::signal::unix::{signal, SignalKind};
@@ -16,6 +17,34 @@ struct MyStruct {
     task: String,
 }
 
+#[derive(Clone)]
+struct Manager {
+    jobs: Arc<Mutex<Vec<MyStruct>>>,
+}
+
+#[async_trait]
+impl EscalonTrait for Manager {
+    fn count(&self) -> usize {
+        let count = self.jobs.lock().unwrap().len();
+        count
+    }
+
+    async fn take_jobs(
+        &self,
+        from: String,
+        start_at: usize,
+        count: usize,
+    ) -> Result<Vec<String>, ()> {
+        println!("{}: {} {}", from, start_at, count);
+        Ok(Vec::new())
+    }
+
+    async fn drop_jobs(&self, jobs: Vec<String>) -> Result<(), ()> {
+        println!("Dropping: {}", jobs.len());
+        Ok(())
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0".to_string()).parse::<IpAddr>()?;
@@ -23,17 +52,14 @@ async fn main() -> Result<()> {
     let iden = std::env::var("HOSTNAME").unwrap_or("server".to_string());
     let gran = std::env::var("GENRANGE").unwrap_or("10".to_string()).parse::<u16>()?;
 
-    let jobs: Arc<Mutex<Vec<MyStruct>>> = Arc::new(Mutex::new(Vec::new()));
-    let cloned_jobs_count = jobs.clone();
-
+    let manager = Manager {
+        jobs: Arc::new(Mutex::new(Vec::new())),
+    };
     let mut udp_server = Escalon::new()
         .set_id(iden)
         .set_addr(addr)
         .set_port(port)
-        .set_count_jobs(move || cloned_jobs_count.lock().unwrap().len())
-        .set_take_jobs(move |id, from, jobs_to_add| {
-            println!("From {}: {} jobs to add, starting at {}.", id, jobs_to_add, from);
-        })
+        .set_manager(manager.clone())
         .build()
         .await;
 
@@ -44,8 +70,7 @@ async fn main() -> Result<()> {
         //         task: "test".to_string(),
         //     };
 
-        //     let mut blah = jobs.lock().unwrap();
-        //     blah.push(job);
+        //     manager.jobs.lock().unwrap().push(job);
         // }
 
         loop {
@@ -55,8 +80,7 @@ async fn main() -> Result<()> {
                     task: "test".to_string(),
                 };
 
-                let mut blah = jobs.lock().unwrap();
-                blah.push(job);
+                manager.jobs.lock().unwrap().push(job);
             }
 
             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;

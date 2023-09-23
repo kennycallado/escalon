@@ -47,14 +47,16 @@ impl Escalon {
                         n_jobs_to_redistribute -= n_jobs_to_add;
                         _n_jobs_redistributed += n_jobs_to_add;
 
-                        escalon.process_job_redistribution(
-                            escalon.id.as_str(),
-                            client_id,
-                            client_addr,
-                            n_jobs_to_add,
-                            start_at,
-                            &mut messages,
-                        );
+                        escalon
+                            .process_job_redistribution(
+                                escalon.id.as_str(),
+                                client_id,
+                                client_addr,
+                                n_jobs_to_add,
+                                start_at,
+                                &mut messages,
+                            )
+                            .await;
 
                         start_at += n_jobs_to_add;
                     }

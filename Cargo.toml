@@ -23,6 +23,7 @@ path = "examples/base.rs"
 
 [dependencies]
 anyhow = "1.0.72"
+async-trait = "0.1.73"
 chrono = "0.4.26"
 # memory-stats = "1.1.0"
 # procfs = "0.15.1"

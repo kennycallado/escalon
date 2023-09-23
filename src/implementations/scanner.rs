@@ -38,8 +38,9 @@ impl Escalon {
 
                     let escalon = escalon.clone();
                     tokio::spawn(async move {
+                        // wait to avoid clients colitions
                         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-                        escalon.redistribute_jobs(dead_id);
+                        escalon.redistribute_jobs(dead_id).await;
                     });
                 }
             }
@@ -48,7 +49,7 @@ impl Escalon {
         Ok(())
     }
 
-    fn redistribute_jobs(&self, dead_id: String) {
+    async fn redistribute_jobs(&self, dead_id: String) {
         if self.should_skip_redistribution(&dead_id) {
             return;
         }
@@ -97,7 +98,8 @@ impl Escalon {
                         n_jobs_to_add,
                         start_at,
                         &mut messages,
-                    );
+                    )
+                    .await;
 
                     start_at += n_jobs_to_add;
                 }
@@ -131,7 +133,7 @@ impl Escalon {
     }
 
     pub fn calculate_job_counts(&self) -> (usize, usize) {
-        let n_jobs_own = self.functions.count.as_ref()();
+        let n_jobs_own = self.manager.count();
         let n_jobs_clients = self.calculate_total_jobs_in_clients();
         (n_jobs_own, n_jobs_clients)
     }
@@ -176,7 +178,7 @@ impl Escalon {
         n_jobs_to_add
     }
 
-    pub fn process_job_redistribution(
+    pub async fn process_job_redistribution(
         &self,
         from_client: &str,
         client_id: &str,
@@ -186,7 +188,10 @@ impl Escalon {
         messages: &mut Vec<(Message, SocketAddr)>,
     ) {
         if client_id == self.id {
-            self.functions.add_from.clone().as_ref()(from_client.to_string(), start_at, n_jobs_to_add);
+            self.manager
+                .take_jobs(from_client.to_string(), start_at, n_jobs_to_add)
+                .await
+                .unwrap();
         } else {
             let message = Message::new_take_jobs(
                 self.id.clone(),

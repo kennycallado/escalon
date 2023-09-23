@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
+use crate::Escalon;
 use crate::{Client, ClientState};
-use crate::{Distrib, Escalon};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Message {
@@ -50,6 +50,7 @@ pub struct TakeJobsContent {
 pub struct DoneContent {
     pub sender_id: String,
     pub from_client: String,
+    pub jobs: Vec<String>,
 }
 
 impl Message {
@@ -161,45 +162,46 @@ impl Message {
         addr: SocketAddr,
         content: TakeJobsContent,
     ) {
-        escalon.functions.add_from.as_ref()(
-            content.from_client.clone(),
-            content.start_at,
-            content.jobs,
-        );
+        let done = escalon
+            .manager
+            .take_jobs(content.from_client.clone(), content.start_at, content.jobs)
+            .await
+            .unwrap();
 
-        let message = Message::new_done(escalon.id.clone(), content.from_client.clone());
+        let message = Message::new_done(escalon.id.clone(), content.from_client, done);
         escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
     }
 }
 
 impl Message {
-    pub fn new_done(id: String, dead_id: String) -> Self {
+    pub fn new_done(id: String, from_client: String, jobs: Vec<String>) -> Self {
         Self {
             action: Action::Done(DoneContent {
                 sender_id: id,
-                from_client: dead_id.clone(),
+                from_client,
+                jobs,
             }),
         }
     }
 
-    pub fn handle_done(&self, escalon: &Escalon, content: DoneContent) {
+    pub async fn handle_done(&self, escalon: &Escalon, content: DoneContent) {
+        // if the jobs are from this escalon
         if content.from_client == escalon.id {
             let temp = escalon.distribution.lock().unwrap();
-            let info: &Distrib = temp
-                .iter()
-                .find(|(sender, from_client, _, _, _)| {
+            temp.iter()
+                .find(|(sender, from_client, _start_at, _n_jobs, _done)| {
                     *sender == content.sender_id && *from_client == escalon.id
                 })
                 .unwrap();
-
-            // call function to remove
-            println!("Removing {} jobs from {}", info.3, info.1);
         }
 
+        escalon.manager.drop_jobs(content.jobs).await.unwrap();
+
+        // if jobs are from another escalon
         // let dist;
         {
             let mut temp = escalon.distribution.lock().unwrap();
-            temp.retain(|(sender, form_client, _, _, _)| {
+            temp.retain(|(sender, form_client, _start_at, _n_jobs, _done)| {
                 !(*sender == content.sender_id && *form_client == content.from_client)
             });
 

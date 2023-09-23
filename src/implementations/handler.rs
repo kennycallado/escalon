@@ -19,24 +19,39 @@ impl Escalon {
                             msg.handle_join(&escalon, addr, content).await;
                         }
                     }
+
                     Action::Check(content) => {
                         if content.sender_id != escalon.id {
                             msg.handle_check(&escalon, content)
                         }
                     }
+
                     Action::FoundDead(content) => {
                         if content.sender_id != escalon.id {
                             msg.handle_found_dead(&escalon, addr, content).await;
+                        } else {
+                            let message =
+                                Message::new_join(escalon.id.clone(), escalon.start_time);
+
+                            escalon
+                                .tx_sender
+                                .as_ref()
+                                .unwrap()
+                                .send((message, None))
+                                .await
+                                .unwrap();
                         }
                     }
+
                     Action::TakeJobs(content) => {
                         if content.sender_id != escalon.id {
                             msg.handle_take_jobs(&escalon, addr, content).await;
                         }
                     }
+
                     Action::Done(content) => {
                         if content.sender_id != escalon.id {
-                            msg.handle_done(&escalon, content);
+                            msg.handle_done(&escalon, content).await;
                         }
                     }
                 }
