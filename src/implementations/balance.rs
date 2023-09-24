@@ -9,11 +9,11 @@ impl Escalon {
         let escalon = self.clone();
 
         tokio::spawn(async move {
-            // Wait before starting the balancer
-            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 
             loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                // Wait before starting the balancer
+                tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                // tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
                 let (n_jobs_own, n_jobs_clients) = escalon.calculate_job_counts();
                 let n_jobs_total = n_jobs_own + n_jobs_clients;
