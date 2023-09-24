@@ -7,12 +7,12 @@ services:
       ADDR: "0.0.0.0"
       PORT: "65056"
       RUST_BACKTRACE: 1
-      GENRANGE: 20
+      GENRANGE: 10
     volumes:
       - ./target/release/examples/base:/usr/bin/escalon
     command: [ "escalon" ]
     deploy:
-      replicas: 16
+      replicas: 8
 
   cron-2:
     image: debian:latest
@@ -20,8 +20,9 @@ services:
       ADDR: "0.0.0.0"
       PORT: "65056"
       RUST_BACKTRACE: 1
+      GENRANGE: 20
     volumes:
       - ./target/release/examples/base:/usr/bin/escalon
     command: [ "escalon" ]
     deploy:
-      replicas: 16
+      replicas: 8
