@@ -1,4 +1,3 @@
-use anyhow::Result;
 use std::net::SocketAddr;
 use tokio::sync::mpsc::Sender;
 
@@ -7,7 +6,7 @@ use crate::types::message::{Action, Message};
 use crate::Escalon;
 
 impl Escalon {
-    pub fn handle_action(&self) -> Result<Sender<(Message, SocketAddr)>> {
+    pub fn handle_action(&self) -> Sender<(Message, SocketAddr)> {
         let escalon = self.clone();
         let (tx, mut rx) = tokio::sync::mpsc::channel::<(Message, SocketAddr)>(MAX_CONNECTIONS);
 
@@ -29,17 +28,6 @@ impl Escalon {
                     Action::FoundDead(content) => {
                         if content.sender_id != escalon.id {
                             msg.handle_found_dead(&escalon, addr, content).await;
-                        } else {
-                            let message =
-                                Message::new_join(escalon.id.clone(), escalon.start_time);
-
-                            escalon
-                                .tx_sender
-                                .as_ref()
-                                .unwrap()
-                                .send((message, None))
-                                .await
-                                .unwrap();
                         }
                     }
 
@@ -58,6 +46,6 @@ impl Escalon {
             }
         });
 
-        Ok(tx)
+        tx
     }
 }

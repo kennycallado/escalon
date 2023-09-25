@@ -88,7 +88,7 @@ async fn main() -> Result<()> {
         }
     });
 
-    udp_server.listen().await?;
+    udp_server.listen().await;
 
     signal(SignalKind::terminate())?.recv().await;
     println!("Shutting down the server");

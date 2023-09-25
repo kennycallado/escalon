@@ -1,11 +1,9 @@
-use anyhow::Result;
-
 use crate::constants::HEARTBEAT_SECS;
 use crate::types::message::Message;
 use crate::Escalon;
 
 impl Escalon {
-    pub fn start_heartbeat(&self) -> Result<()> {
+    pub fn start_heartbeat(&self) {
         let escalon = self.clone();
 
         tokio::spawn(async move {
@@ -19,7 +17,5 @@ impl Escalon {
                 escalon.tx_sender.as_ref().unwrap().send((message, None)).await.unwrap();
             }
         });
-
-        Ok(())
     }
 }

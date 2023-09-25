@@ -46,6 +46,8 @@ pub struct Escalon {
     manager: Arc<dyn EscalonTrait>,
 
     socket: Arc<UdpSocket>,
+    // TODO
+    // quizá en un Arc
     tx_handler: Option<Sender<(Message, SocketAddr)>>,
     tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
 }

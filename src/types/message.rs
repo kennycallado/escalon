@@ -43,14 +43,14 @@ pub struct TakeJobsContent {
     pub sender_id: String,
     pub from_client: String,
     pub start_at: usize,
-    pub jobs: usize,
+    pub n_jobs: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct DoneContent {
     pub sender_id: String,
     pub from_client: String,
-    pub jobs: Vec<String>,
+    pub n_jobs: Vec<String>,
 }
 
 impl Message {
@@ -63,6 +63,8 @@ impl Message {
         }
     }
 
+    // TODO
+    // quizá siempre enviar el join pero comprobar antes de insertar
     pub async fn handle_join(&self, escalon: &Escalon, addr: SocketAddr, content: JoinContent) {
         if !escalon.clients.lock().unwrap().contains_key(&content.sender_id) {
             let message = Message::new_join(escalon.id.clone(), escalon.start_time);
@@ -93,6 +95,8 @@ impl Message {
         }
     }
 
+    // TODO
+    // quizá enviar un join si no está en la lista de clientes
     pub fn handle_check(&self, escalon: &Escalon, content: CheckContent) {
         escalon.clients.lock().unwrap().entry(content.sender_id).and_modify(|client| {
             client.last_seen = Utc::now().timestamp();
@@ -111,12 +115,15 @@ impl Message {
         }
     }
 
+    // TODO
+    // quizá spawn un thread para enviar el join y quitar async de la firma
     pub async fn handle_found_dead(
         &self,
         escalon: &Escalon,
         addr: SocketAddr,
         content: FoundDeadContent,
     ) {
+        // si soy yo enviar un join 
         if content.dead_id == escalon.id {
             let message = Message::new_join(escalon.id.clone(), escalon.start_time);
             escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
@@ -151,7 +158,7 @@ impl Message {
                 sender_id: id,
                 from_client,
                 start_at,
-                jobs,
+                n_jobs: jobs,
             }),
         }
     }
@@ -164,10 +171,12 @@ impl Message {
     ) {
         let done = escalon
             .manager
-            .take_jobs(content.from_client.clone(), content.start_at, content.jobs)
+            .take_jobs(content.from_client.clone(), content.start_at, content.n_jobs)
             .await
             .unwrap();
 
+        // TODO
+        // quizá dividir en caso de que sean muchos
         let message = Message::new_done(escalon.id.clone(), content.from_client, done);
         escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
     }
@@ -179,36 +188,23 @@ impl Message {
             action: Action::Done(DoneContent {
                 sender_id: id,
                 from_client,
-                jobs,
+                n_jobs: jobs,
             }),
         }
     }
 
     pub async fn handle_done(&self, escalon: &Escalon, content: DoneContent) {
-        // if the jobs are from this escalon
         if content.from_client == escalon.id {
-            let temp = escalon.distribution.lock().unwrap();
-            temp.iter()
-                .find(|(sender, from_client, _start_at, _n_jobs, _done)| {
-                    *sender == content.sender_id && *from_client == escalon.id
-                })
-                .unwrap();
+            escalon.manager.drop_jobs(content.n_jobs).await.unwrap();
         }
 
-        escalon.manager.drop_jobs(content.jobs).await.unwrap();
+        // case dead client
+        let mut temp = escalon.distribution.lock().unwrap();
+        temp.retain(|(sender, form_client, _start_at, _n_jobs, _done)| {
+            !(*sender == content.sender_id && *form_client == content.from_client)
+        });
 
-        // if jobs are from another escalon
-        // let dist;
-        {
-            let mut temp = escalon.distribution.lock().unwrap();
-            temp.retain(|(sender, form_client, _start_at, _n_jobs, _done)| {
-                !(*sender == content.sender_id && *form_client == content.from_client)
-            });
-
-            // dist = temp;
-        }
-
-        // if dist.len() == 0 {
+        // if temp.len() == 0 {
         //     println!("All distributed");
         // }
     }

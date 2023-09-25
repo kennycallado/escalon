@@ -1,3 +1,4 @@
+pub mod aux;
 pub mod balance;
 pub mod handler;
 pub mod heartbeat;

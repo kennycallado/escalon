@@ -22,7 +22,6 @@ name = "base"
 path = "examples/base.rs"
 
 [dependencies]
-anyhow = "1.0.72"
 async-trait = "0.1.73"
 chrono = "0.4.26"
 # memory-stats = "1.1.0"
@@ -33,5 +32,6 @@ serde_json = "1.0.104"
 tokio = { version = "1.30.0", features = ["full"] }
 
 [dev-dependencies]
+anyhow = "1.0.75"
 rand = "0.8.5"
 uuid = { version = "1.4.1", features = ["v4", "serde"] }

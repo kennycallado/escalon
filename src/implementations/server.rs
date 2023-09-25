@@ -1,4 +1,3 @@
-use anyhow::Result;
 use std::net::SocketAddr;
 use tokio::sync::mpsc::Sender;
 
@@ -7,28 +6,26 @@ use crate::types::message::{Action, JoinContent, Message};
 use crate::Escalon;
 
 impl Escalon {
-    pub async fn listen(&mut self) -> Result<()> {
+    pub async fn listen(&mut self) {
         // udp sender
-        self.tx_sender = Some(self.to_udp()?);
+        self.tx_sender = Some(self.to_udp());
         // join
-        self.send_join()?;
+        self.send_join();
 
         // heartbeat
-        self.start_heartbeat()?;
-        self.balancer()?;
-        self.scanner_dead()?;
+        self.start_heartbeat();
+        self.balancer();
+        self.scanner_dead();
 
         // handler
-        self.tx_handler = Some(self.handle_action()?);
+        self.tx_handler = Some(self.handle_action());
         // udp reciver
-        self.from_udp()?;
+        self.from_udp();
 
-        println!("Server listen on: {}", self.socket.local_addr()?);
-
-        Ok(())
+        println!("Server listen on: {}", self.socket.local_addr().unwrap());
     }
 
-    pub fn send_join(&self) -> Result<()> {
+    pub fn send_join(&self) {
         let tx = self.tx_sender.clone();
 
         let message = Message {
@@ -41,11 +38,9 @@ impl Escalon {
         tokio::task::spawn(async move {
             tx.as_ref().unwrap().send((message, None)).await.unwrap();
         });
-
-        Ok(())
     }
 
-    pub fn to_udp(&self) -> Result<Sender<(Message, Option<SocketAddr>)>> {
+    pub fn to_udp(&self) -> Sender<(Message, Option<SocketAddr>)> {
         let socket = self.socket.clone();
         let (tx, mut rx) =
             tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
@@ -55,7 +50,7 @@ impl Escalon {
                 let bytes = match serde_json::to_vec(&msg) {
                     Ok(bytes) => bytes,
                     Err(e) => {
-                        println!("Error: {e}");
+                        println!("Error; to_udp(): {e}");
 
                         continue;
                     }
@@ -70,11 +65,11 @@ impl Escalon {
             }
         });
 
-        Ok(tx)
+        tx
     }
 
     #[allow(clippy::wrong_self_convention)]
-    pub fn from_udp(&self) -> Result<()> {
+    pub fn from_udp(&self) {
         let socket = self.socket.clone();
         let tx = self.tx_handler.clone();
 
@@ -86,7 +81,7 @@ impl Escalon {
                 let message: Message = match serde_json::from_slice(&buf[..len]) {
                     Ok(message) => message,
                     Err(e) => {
-                        println!("Error: {e}");
+                        println!("Error; from_udp(): {e}");
 
                         continue;
                     }
@@ -95,7 +90,5 @@ impl Escalon {
                 tx.as_ref().unwrap().send((message, addr)).await.unwrap();
             }
         });
-
-        Ok(())
     }
 }
