@@ -1,6 +1,6 @@
 [package]
 authors = ["kennycallado <kennycallado@hotmail.com>"]
-description = "Simple way to scale your application"
+description = "UDP communication layer for the Escalon project"
 edition = "2021"
 license = "MIT"
 name = "escalon"
@@ -34,4 +34,4 @@ tokio = { version = "1.30.0", features = ["full"] }
 [dev-dependencies]
 anyhow = "1.0.75"
 rand = "0.8.5"
-uuid = { version = "1.4.1", features = ["v4", "serde"] }
+uuid = { version = "1.4.1", features = ["v4"] }

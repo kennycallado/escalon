@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::{
     net::IpAddr,
     sync::{Arc, Mutex},
@@ -7,11 +9,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use escalon::{Escalon, EscalonTrait};
 use rand::prelude::*;
-use serde::{Deserialize, Serialize};
 use tokio::signal::unix::{signal, SignalKind};
 use uuid::Uuid;
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 struct MyStruct {
     job_id: Uuid,
     task: String,
