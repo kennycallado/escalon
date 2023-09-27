@@ -40,7 +40,7 @@ pub struct Escalon {
     id: String,
     start_time: std::time::SystemTime,
 
-    clients: Arc<Mutex<HashMap<String, Client>>>,
+    pub clients: Arc<Mutex<HashMap<String, Client>>>,
     distribution: Arc<Mutex<Vec<Distrib>>>,
 
     manager: Arc<dyn EscalonTrait>,
