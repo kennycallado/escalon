@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use chrono::Utc;
 
 use crate::constants::THRESHOLD_SECS;
-use crate::types::client::Client;
+use crate::types::client::EscalonClient;
 use crate::types::message::Message;
 use crate::Escalon;
 
@@ -80,12 +80,12 @@ impl Escalon {
         false
     }
 
-    fn remove_dead_client(&self, dead_id: &str) -> Option<Client> {
+    fn remove_dead_client(&self, dead_id: &str) -> Option<EscalonClient> {
         let mut clients = self.clients.lock().unwrap();
         clients.remove(dead_id)
     }
 
-    fn calculate_job_counts_with_dead(&self, dead: &Client) -> (usize, usize, usize) {
+    fn calculate_job_counts_with_dead(&self, dead: &EscalonClient) -> (usize, usize, usize) {
         let n_jobs_dead = dead.state.jobs;
         let (n_jobs_own, n_jobs_clients) = self.calculate_job_counts();
         (n_jobs_dead, n_jobs_own, n_jobs_clients)

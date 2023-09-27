@@ -18,7 +18,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::builder::{Addr, Id, Port};
 use crate::builder::{NoAddr, NoId, NoPort};
-use crate::types::client::{Client, ClientState};
+pub use crate::types::client::{EscalonClient, ClientState};
 use crate::types::message::Message;
 
 type Distrib = (String, String, usize, usize, bool);
@@ -40,7 +40,7 @@ pub struct Escalon {
     id: String,
     start_time: std::time::SystemTime,
 
-    pub clients: Arc<Mutex<HashMap<String, Client>>>,
+    pub clients: Arc<Mutex<HashMap<String, EscalonClient>>>,
     distribution: Arc<Mutex<Vec<Distrib>>>,
 
     manager: Arc<dyn EscalonTrait>,

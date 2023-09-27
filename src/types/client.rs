@@ -2,7 +2,7 @@
 use std::net::SocketAddr;
 
 #[derive(Clone, Debug)]
-pub struct Client {
+pub struct EscalonClient {
     pub address: SocketAddr,
     pub last_seen: i64,
     pub start_time: std::time::SystemTime,

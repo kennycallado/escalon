@@ -4,7 +4,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::Escalon;
-use crate::{Client, ClientState};
+use crate::{EscalonClient, ClientState};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Message {
@@ -73,7 +73,7 @@ impl Message {
 
         escalon.clients.lock().unwrap().insert(
             content.sender_id,
-            Client {
+            EscalonClient {
                 start_time: content.start_time,
                 address: addr,
                 last_seen: Utc::now().timestamp(),
