@@ -21,6 +21,7 @@ use crate::builder::{NoAddr, NoId, NoPort};
 pub use crate::types::client::{EscalonClient, ClientState};
 use crate::types::message::Message;
 
+/// sender, take_from, start_at, n_jobs, done
 type Distrib = (String, String, usize, usize, bool);
 
 #[async_trait]

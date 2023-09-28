@@ -194,11 +194,9 @@ impl Message {
     }
 
     pub async fn handle_done(&self, escalon: &Escalon, content: DoneContent) {
-        if content.from_client == escalon.id {
-            escalon.manager.drop_jobs(content.n_jobs).await.unwrap();
-        }
+        // Should manage own jobs and case dead client jobs
+        escalon.manager.drop_jobs(content.n_jobs).await.unwrap();
 
-        // case dead client
         let mut temp = escalon.distribution.lock().unwrap();
         temp.retain(|(sender, form_client, _start_at, _n_jobs, _done)| {
             !(*sender == content.sender_id && *form_client == content.from_client)
