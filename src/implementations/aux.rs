@@ -164,10 +164,12 @@ impl Escalon {
         messages: &mut Vec<(Message, SocketAddr)>,
     ) {
         if client_id == self.id {
-            self.manager
+            let jobs = self.manager
                 .take_jobs(from_client.to_string(), start_at, n_jobs_to_add)
                 .await
                 .unwrap();
+
+            self.manager.drop_jobs(jobs).await.unwrap();
         } else {
             let message = Message::new_take_jobs(
                 self.id.clone(),

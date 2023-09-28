@@ -27,6 +27,8 @@ echo -n "{\"action\":{\"Check\":{\"sender_id\":\"TESTER\",\"jobs\":0}}}" | nc -u
 - [ ] colisión:
   Existe la posibiliad de asignar tareas de un muerto a un cliente que a muerto en
   el periodo de espera... debería vovler a comprobar después de la espera...
+- [ ] aux.rs:
+  rename to tools.rs...
 
 ## Implementation tests:
 - docker compose up
