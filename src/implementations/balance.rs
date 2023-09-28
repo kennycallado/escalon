@@ -15,7 +15,7 @@ impl Escalon {
                 let n_jobs_total = n_jobs_own + n_jobs_clients;
                 let avg_jobs_client = escalon.calculate_avg_jobs_client(n_jobs_total);
 
-                if n_jobs_own as f64 >= (avg_jobs_client as f64 * 1.05)
+                if n_jobs_own as f64 >= (avg_jobs_client as f64 * 1.1)
                     && (n_jobs_own - avg_jobs_client) > 3
                 {
                     let mut clients_sorted = escalon.sort_clients_by_jobs(n_jobs_own);
