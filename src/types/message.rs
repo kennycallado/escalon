@@ -175,10 +175,11 @@ impl Message {
             .await
             .unwrap();
 
-        // TODO
-        // quizá dividir en caso de que sean muchos
-        let message = Message::new_done(escalon.id.clone(), content.from_client, done);
-        escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
+        let chunks = done.chunks(50);
+        for chunk in chunks {
+            let message = Message::new_done(escalon.id.clone(), content.from_client.clone(), chunk.to_vec());
+            escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
+        }
     }
 }
 
