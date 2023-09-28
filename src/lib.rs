@@ -18,7 +18,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::builder::{Addr, Id, Port};
 use crate::builder::{NoAddr, NoId, NoPort};
-pub use crate::types::client::{EscalonClient, ClientState};
+pub use crate::types::client::{ClientState, EscalonClient};
 use crate::types::message::Message;
 
 /// sender, take_from, start_at, n_jobs, done

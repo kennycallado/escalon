@@ -4,7 +4,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::Escalon;
-use crate::{EscalonClient, ClientState};
+use crate::{ClientState, EscalonClient};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Message {
@@ -177,7 +177,11 @@ impl Message {
 
         let chunks = done.chunks(50);
         for chunk in chunks {
-            let message = Message::new_done(escalon.id.clone(), content.from_client.clone(), chunk.to_vec());
+            let message = Message::new_done(
+                escalon.id.clone(),
+                content.from_client.clone(),
+                chunk.to_vec(),
+            );
             escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
         }
     }

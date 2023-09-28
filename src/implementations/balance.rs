@@ -15,12 +15,9 @@ impl Escalon {
                 let n_jobs_total = n_jobs_own + n_jobs_clients;
                 let avg_jobs_client = escalon.calculate_avg_jobs_client(n_jobs_total);
 
-                // println!("n_jobs_own: {}", n_jobs_own);
-                // println!("n_jobs_clients: {}", n_jobs_clients);
-                // println!("n_jobs_total: {}", n_jobs_total);
-                // println!("avg_jobs_client: {}", avg_jobs_client);
-
-                if n_jobs_own as f64 >= (avg_jobs_client as f64 * 1.05) && (n_jobs_own - avg_jobs_client) > 3 {
+                if n_jobs_own as f64 >= (avg_jobs_client as f64 * 1.05)
+                    && (n_jobs_own - avg_jobs_client) > 3
+                {
                     let mut clients_sorted = escalon.sort_clients_by_jobs(n_jobs_own);
                     let mut n_jobs_to_redistribute = n_jobs_own - avg_jobs_client;
                     let mut _n_jobs_redistributed = 0;

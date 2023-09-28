@@ -116,7 +116,6 @@ async fn test_intercept_before_send_join() -> Result<()> {
         tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
     server.tx_sender = Some(tx_sender);
 
-
     server.listen().await;
     // assert!(server.send_join().is_ok());
 

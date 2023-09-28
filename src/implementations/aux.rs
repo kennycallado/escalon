@@ -20,18 +20,8 @@ impl Escalon {
             Some(dead) => {
                 let (n_jobs_dead, n_jobs_own, n_jobs_clients) =
                     self.calculate_job_counts_with_dead(&dead);
-
                 let n_jobs_total = n_jobs_clients + n_jobs_own + n_jobs_dead;
-
                 let n_jobs_avg = self.calculate_avg_jobs_client(n_jobs_total);
-
-                // println!("Dead jobs: {}", n_jobs_dead);
-                // println!("Own jobs: {}", n_jobs_own);
-                // println!("Clients jobs: {}", n_jobs_clients);
-                // println!("Average jobs per client: {}", n_jobs_avg);
-
-                // println!("Total jobs: {}", n_jobs_total);
-                // println!("Total clients: {}", n_clients);
 
                 let mut clients_sorted = self.sort_clients_by_jobs(n_jobs_own);
                 let mut n_jobs_to_redistribute = n_jobs_dead;
@@ -165,7 +155,8 @@ impl Escalon {
         messages: &mut Vec<(Message, SocketAddr)>,
     ) {
         if client_id == self.id {
-            let jobs = self.manager
+            let jobs = self
+                .manager
                 .take_jobs(from_client.to_string(), start_at, n_jobs_to_add)
                 .await
                 .unwrap();
