@@ -36,7 +36,8 @@ impl Escalon {
                 let mut clients_sorted = self.sort_clients_by_jobs(n_jobs_own);
                 let mut n_jobs_to_redistribute = n_jobs_dead;
                 let mut _n_jobs_redistributed = 0;
-                let mut start_at = 1;
+                // let mut start_at = 1;
+                let mut start_at = 0;
                 let mut messages: Vec<(Message, SocketAddr)> = Vec::new();
 
                 for (client_id, n_jobs, client_addr) in clients_sorted.iter_mut() {
