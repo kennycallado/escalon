@@ -3,7 +3,7 @@ mod constants;
 mod implementations;
 mod types;
 
-use builder::{Manager, NoManager};
+use builder::{Manager, NoManager, NoService, Service};
 pub use tokio;
 
 #[cfg(test)]
@@ -11,7 +11,7 @@ mod tests;
 
 use async_trait::async_trait;
 use std::collections::HashMap;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, IpAddr};
 use std::sync::{Arc, Mutex};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
@@ -47,6 +47,7 @@ pub struct Escalon {
     manager: Arc<dyn EscalonTrait>,
 
     socket: Arc<UdpSocket>,
+    service: IpAddr,
     // TODO
     // quizá en un Arc
     tx_handler: Option<Sender<(Message, SocketAddr)>>,
@@ -55,24 +56,26 @@ pub struct Escalon {
 
 impl Escalon {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> EscalonBuilder<NoId, NoAddr, NoPort, NoManager> {
+    pub fn new() -> EscalonBuilder<NoId, NoAddr, NoService, NoPort, NoManager> {
         EscalonBuilder {
             id: NoId,
             addr: NoAddr,
+            svc: NoService,
             port: NoPort,
             manager: NoManager,
         }
     }
 }
 
-pub struct EscalonBuilder<I, A, P, F> {
+pub struct EscalonBuilder<I, A, S, P, F> {
     id: I,
     addr: A,
+    svc: S,
     port: P,
     manager: F,
 }
 
-impl EscalonBuilder<Id, Addr, Port, Manager> {
+impl EscalonBuilder<Id, Addr, Service, Port, Manager> {
     pub async fn build(self) -> Escalon {
         let socket =
             UdpSocket::bind(format!("{:?}:{}", self.addr.0, self.port.0)).await.unwrap();
@@ -84,6 +87,7 @@ impl EscalonBuilder<Id, Addr, Port, Manager> {
             manager: self.manager.0,
             clients: Arc::new(Mutex::new(HashMap::new())),
             distribution: Arc::new(Mutex::new(Vec::new())),
+            service: self.svc.0,
             socket: Arc::new(socket),
             tx_handler: None,
             tx_sender: None,

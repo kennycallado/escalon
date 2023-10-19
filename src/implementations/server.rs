@@ -42,6 +42,7 @@ impl Escalon {
 
     pub fn to_udp(&self) -> Sender<(Message, Option<SocketAddr>)> {
         let socket = self.socket.clone();
+        let service = self.service.clone();
         let (tx, mut rx) =
             tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
 
@@ -58,7 +59,9 @@ impl Escalon {
 
                 let addr = match addr {
                     Some(addr) => addr,
-                    None => SocketAddr::from(([255, 255, 255, 255], 65056)),
+                    None => {
+                        SocketAddr::from((service, 65056))
+                    },
                 };
 
                 socket.send_to(&bytes, addr).await.unwrap();
