@@ -47,6 +47,8 @@ impl Escalon {
             tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
 
         tokio::spawn(async move {
+            let trace = std::env::var("TRACE").unwrap_or("false".to_string());
+
             while let Some((msg, addr)) = rx.recv().await {
                 let bytes = match serde_json::to_vec(&msg) {
                     Ok(bytes) => bytes,
@@ -64,6 +66,10 @@ impl Escalon {
                     },
                 };
 
+                if trace == "true" {
+                    println!("Send: {:#?}", msg);
+                };
+
                 socket.send_to(&bytes, addr).await.unwrap();
             }
         });
@@ -77,6 +83,7 @@ impl Escalon {
         let tx = self.tx_handler.clone();
 
         tokio::spawn(async move {
+            let trace = std::env::var("TRACE").unwrap_or("false".to_string());
             let mut buf = [0u8; BUFFER_SIZE];
 
             loop {
@@ -90,6 +97,9 @@ impl Escalon {
                     }
                 };
 
+                if trace == "true" {
+                    println!("Recv: {:#?}", message);
+                };
                 tx.as_ref().unwrap().send((message, addr)).await.unwrap();
             }
         });
