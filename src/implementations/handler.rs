@@ -21,6 +21,7 @@ impl Escalon {
 
                     Action::Check(content) => {
                         if content.sender_id != escalon.id {
+                            // msg.handle_check(&escalon, content, addr)
                             msg.handle_check(&escalon, content)
                         }
                     }

@@ -71,7 +71,7 @@ impl Message {
             escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
         }
 
-        escalon.clients.lock().unwrap().insert(
+        let insertion = escalon.clients.lock().unwrap().insert(
             content.sender_id,
             EscalonClient {
                 start_time: content.start_time,
@@ -82,6 +82,15 @@ impl Message {
                 },
             },
         );
+
+        let trace = std::env::var("TRACE").unwrap_or("false".to_string());
+        if trace == "true" {
+            if let Some(_) = insertion {
+                eprintln!("Client already in list");
+            }
+
+            println!("Clients: {:?}", escalon.clients.lock().unwrap());
+        }
     }
 }
 
@@ -97,11 +106,26 @@ impl Message {
 
     // TODO
     // quizá enviar un join si no está en la lista de clientes
+    // pub fn handle_check(&self, escalon: &Escalon, content: CheckContent, addr: SocketAddr) {
     pub fn handle_check(&self, escalon: &Escalon, content: CheckContent) {
         escalon.clients.lock().unwrap().entry(content.sender_id).and_modify(|client| {
             client.last_seen = Utc::now().timestamp();
             client.state.jobs = content.jobs;
         });
+        //     .or_insert(EscalonClient {
+        //     start_time: std::time::SystemTime::now(),
+        //     address: addr,
+        //     last_seen: Utc::now().timestamp(),
+        //     state: ClientState {
+        //         jobs: content.jobs,
+        //     },
+        // });
+
+        let trace = std::env::var("TRACE").unwrap_or("false".to_string());
+        if trace == "true" {
+            let clients = escalon.clients.lock().unwrap();
+            println!("Clients: {:?}", clients);
+        }
     }
 }
 
