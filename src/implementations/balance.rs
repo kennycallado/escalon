@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use crate::types::message::Message;
-use crate::Escalon;
+use crate::{Distrib, Escalon};
 
 impl Escalon {
     pub fn balancer(&self) {
@@ -30,27 +30,28 @@ impl Escalon {
                             break;
                         }
 
-                        let n_jobs_to_add = escalon.calculate_jobs_to_add(
+                        let n_jobs = escalon.calculate_jobs_to_add(
                             *n_jobs,
                             avg_jobs_client,
                             n_jobs_to_redistribute,
                         );
 
-                        n_jobs_to_redistribute -= n_jobs_to_add;
-                        _n_jobs_redistributed += n_jobs_to_add;
+                        n_jobs_to_redistribute -= n_jobs;
+                        _n_jobs_redistributed += n_jobs;
+
+                        let distrib = Distrib {
+                            client_id: client_id.to_string(),
+                            take_from: escalon.id.clone(),
+                            start_at,
+                            n_jobs,
+                            done: false,
+                        };
 
                         escalon
-                            .process_job_redistribution(
-                                escalon.id.as_str(),
-                                client_id,
-                                client_addr,
-                                n_jobs_to_add,
-                                start_at,
-                                &mut messages,
-                            )
+                            .process_job_redistribution(distrib, client_addr, &mut messages)
                             .await;
 
-                        start_at += n_jobs_to_add;
+                        start_at += n_jobs;
                     }
 
                     escalon.spawn_job_redistribution_task(messages);

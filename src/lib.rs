@@ -10,8 +10,9 @@ pub use tokio;
 mod tests;
 
 use async_trait::async_trait;
+use local_ip_address::local_ip;
 use std::collections::HashMap;
-use std::net::{SocketAddr, IpAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
@@ -21,15 +22,20 @@ use crate::builder::{NoAddr, NoId, NoPort};
 pub use crate::types::client::{ClientState, EscalonClient};
 use crate::types::message::Message;
 
-/// sender, take_from, start_at, n_jobs, done
-type Distrib = (String, String, usize, usize, bool);
+pub struct Distrib {
+    pub client_id: String,
+    pub take_from: String,
+    pub start_at: usize,
+    pub n_jobs: usize,
+    pub done: bool,
+}
 
 #[async_trait]
 pub trait EscalonTrait: Send + Sync + 'static {
     fn count(&self) -> usize;
     async fn take_jobs(
         &self,
-        from_client: String,
+        take_from: String,
         start_at: usize,
         n_jobs: usize,
     ) -> Result<Vec<String>, ()>;
@@ -39,6 +45,7 @@ pub trait EscalonTrait: Send + Sync + 'static {
 #[derive(Clone)]
 pub struct Escalon {
     id: String,
+    address: SocketAddr,
     start_time: std::time::SystemTime,
 
     pub clients: Arc<Mutex<HashMap<String, EscalonClient>>>,
@@ -50,7 +57,7 @@ pub struct Escalon {
     service: IpAddr,
     // TODO
     // quizá en un Arc
-    tx_handler: Option<Sender<(Message, SocketAddr)>>,
+    tx_handler: Option<Sender<Message>>,
     tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
 }
 
@@ -83,6 +90,7 @@ impl EscalonBuilder<Id, Addr, Service, Port, Manager> {
 
         Escalon {
             id: self.id.0,
+            address: SocketAddr::new(local_ip().unwrap(), self.port.0),
             start_time: std::time::SystemTime::now(),
             manager: self.manager.0,
             clients: Arc::new(Mutex::new(HashMap::new())),

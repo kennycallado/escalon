@@ -132,6 +132,7 @@ async fn test_intercept_before_send_join() -> Result<()> {
         received_message.0.action,
         Action::Join(JoinContent {
             sender_id: id,
+            address: server.address,
             start_time
         })
     );

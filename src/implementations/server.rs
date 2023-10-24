@@ -7,18 +7,16 @@ use crate::Escalon;
 
 impl Escalon {
     pub async fn listen(&mut self) {
-        // udp sender
         self.tx_sender = Some(self.to_udp());
-        // join
+        self.tx_handler = Some(self.handle_action());
+
         self.send_join();
 
-        // heartbeat
+        // heartbeat, balance and scanner
         self.start_heartbeat();
         self.balancer();
         self.scanner_dead();
 
-        // handler
-        self.tx_handler = Some(self.handle_action());
         // udp reciver
         self.from_udp();
 
@@ -31,6 +29,7 @@ impl Escalon {
         let message = Message {
             action: Action::Join(JoinContent {
                 sender_id: self.id.clone(),
+                address: self.address,
                 start_time: self.start_time,
             }),
         };
@@ -42,13 +41,11 @@ impl Escalon {
 
     pub fn to_udp(&self) -> Sender<(Message, Option<SocketAddr>)> {
         let socket = self.socket.clone();
-        let service = self.service.clone();
-        let (tx, mut rx) =
+        let service = self.service;
+        let (tx_sender, mut rx) =
             tokio::sync::mpsc::channel::<(Message, Option<SocketAddr>)>(MAX_CONNECTIONS);
 
         tokio::spawn(async move {
-            let trace = std::env::var("TRACE").unwrap_or("false".to_string());
-
             while let Some((msg, addr)) = rx.recv().await {
                 let bytes = match serde_json::to_vec(&msg) {
                     Ok(bytes) => bytes,
@@ -61,20 +58,14 @@ impl Escalon {
 
                 let addr = match addr {
                     Some(addr) => addr,
-                    None => {
-                        SocketAddr::from((service, 65056))
-                    },
-                };
-
-                if trace == "true" {
-                    println!("Send: {:#?}", msg);
+                    None => SocketAddr::from((service, 65056)),
                 };
 
                 socket.send_to(&bytes, addr).await.unwrap();
             }
         });
 
-        tx
+        tx_sender
     }
 
     #[allow(clippy::wrong_self_convention)]
@@ -83,11 +74,10 @@ impl Escalon {
         let tx = self.tx_handler.clone();
 
         tokio::spawn(async move {
-            let trace = std::env::var("TRACE").unwrap_or("false".to_string());
             let mut buf = [0u8; BUFFER_SIZE];
 
             loop {
-                let (len, addr) = socket.recv_from(&mut buf).await.unwrap();
+                let (len, _addr) = socket.recv_from(&mut buf).await.unwrap();
                 let message: Message = match serde_json::from_slice(&buf[..len]) {
                     Ok(message) => message,
                     Err(e) => {
@@ -97,10 +87,7 @@ impl Escalon {
                     }
                 };
 
-                if trace == "true" {
-                    println!("Recv: {:#?}", message);
-                };
-                tx.as_ref().unwrap().send((message, addr)).await.unwrap();
+                tx.as_ref().unwrap().send(message).await.unwrap();
             }
         });
     }

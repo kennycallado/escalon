@@ -5,7 +5,7 @@ use chrono::Utc;
 use crate::constants::THRESHOLD_SECS;
 use crate::types::client::EscalonClient;
 use crate::types::message::Message;
-use crate::Escalon;
+use crate::{Distrib, Escalon};
 
 impl Escalon {
     pub async fn redistribute_jobs(&self, dead_id: String) {
@@ -35,23 +35,23 @@ impl Escalon {
                         break;
                     }
 
-                    let n_jobs_to_add =
+                    let n_jobs =
                         self.calculate_jobs_to_add(*n_jobs, n_jobs_avg, n_jobs_to_redistribute);
 
-                    n_jobs_to_redistribute -= n_jobs_to_add;
-                    _n_jobs_redistributed += n_jobs_to_add;
+                    n_jobs_to_redistribute -= n_jobs;
+                    _n_jobs_redistributed += n_jobs;
 
-                    self.process_job_redistribution(
-                        &dead_id,
-                        client_id,
-                        client_addr,
-                        n_jobs_to_add,
+                    let distrib = Distrib {
+                        client_id: client_id.to_string(),
+                        take_from: dead_id.to_string(),
                         start_at,
-                        &mut messages,
-                    )
-                    .await;
+                        n_jobs,
+                        done: false,
+                    };
 
-                    start_at += n_jobs_to_add;
+                    self.process_job_redistribution(distrib, client_addr, &mut messages).await;
+
+                    start_at += n_jobs;
                 }
 
                 self.spawn_job_redistribution_task(messages);
@@ -130,47 +130,42 @@ impl Escalon {
 
     fn update_distribution(
         &self,
-        dead_id: &str,
-        client_id: &str,
-        start_at: usize,
-        n_jobs_to_add: usize,
+        distrib: Distrib,
+        // dead_id: &str,
+        // client_id: &str,
+        // start_at: usize,
+        // n_jobs_to_add: usize,
     ) {
         let mut distribution = self.distribution.lock().unwrap();
-        distribution.push((
-            client_id.to_string(),
-            dead_id.to_string(),
-            start_at,
-            n_jobs_to_add,
-            false,
-        ));
+        distribution.push(distrib);
     }
 
     pub async fn process_job_redistribution(
         &self,
-        from_client: &str,
-        client_id: &str,
+        distrib: Distrib,
         address: &SocketAddr,
-        n_jobs_to_add: usize,
-        start_at: usize,
         messages: &mut Vec<(Message, SocketAddr)>,
     ) {
-        if client_id == self.id {
+        if distrib.client_id == self.id {
             let jobs = self
                 .manager
-                .take_jobs(from_client.to_string(), start_at, n_jobs_to_add)
+                .take_jobs(distrib.take_from, distrib.start_at, distrib.n_jobs)
                 .await
                 .unwrap();
 
             self.manager.drop_jobs(jobs).await.unwrap();
         } else {
             let message = Message::new_take_jobs(
-                self.id.clone(),
-                from_client.to_string(),
-                start_at,
-                n_jobs_to_add,
+                &self.id,
+                &distrib.take_from,
+                distrib.start_at,
+                distrib.n_jobs,
             );
+
+            // let address = self.clients.lock().unwrap().get(&distrib.client_id).unwrap().address;
+
             messages.push((message, *address));
-            self.update_distribution(from_client, client_id, start_at, n_jobs_to_add);
+            self.update_distribution(distrib);
         }
     }
 

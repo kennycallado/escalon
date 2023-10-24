@@ -22,6 +22,7 @@ pub enum Action {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct JoinContent {
+    pub address: SocketAddr,
     pub sender_id: String,
     pub start_time: std::time::SystemTime,
 }
@@ -41,7 +42,7 @@ pub struct FoundDeadContent {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct TakeJobsContent {
     pub sender_id: String,
-    pub from_client: String,
+    pub take_from: String,
     pub start_at: usize,
     pub n_jobs: usize,
 }
@@ -49,15 +50,20 @@ pub struct TakeJobsContent {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct DoneContent {
     pub sender_id: String,
-    pub from_client: String,
+    pub take_from: String,
     pub n_jobs: Vec<String>,
 }
 
 impl Message {
-    pub fn new_join(id: String, start_time: std::time::SystemTime) -> Self {
+    pub fn new_join(
+        addr: SocketAddr,
+        id: impl Into<String>,
+        start_time: std::time::SystemTime,
+    ) -> Self {
         Self {
             action: Action::Join(JoinContent {
-                sender_id: id,
+                address: addr,
+                sender_id: id.into(),
                 start_time,
             }),
         }
@@ -65,32 +71,30 @@ impl Message {
 
     // TODO
     // quizá siempre enviar el join pero comprobar antes de insertar
-    pub async fn handle_join(&self, escalon: &Escalon, addr: SocketAddr, content: JoinContent) {
+    pub async fn handle_join(&self, escalon: &Escalon, content: JoinContent) {
         if !escalon.clients.lock().unwrap().contains_key(&content.sender_id) {
-            let message = Message::new_join(escalon.id.clone(), escalon.start_time);
-            escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
+            let message = Message::new_join(escalon.address, &escalon.id, escalon.start_time);
+
+            escalon
+                .tx_sender
+                .clone()
+                .unwrap()
+                .send((message, Some(content.address)))
+                .await
+                .unwrap();
         }
 
-        let insertion = escalon.clients.lock().unwrap().insert(
+        escalon.clients.lock().unwrap().insert(
             content.sender_id,
             EscalonClient {
                 start_time: content.start_time,
-                address: addr,
+                address: content.address,
                 last_seen: Utc::now().timestamp(),
                 state: ClientState {
                     jobs: 0,
                 },
             },
         );
-
-        let trace = std::env::var("TRACE").unwrap_or("false".to_string());
-        if trace == "true" {
-            if let Some(_) = insertion {
-                eprintln!("Client already in list");
-            }
-
-            println!("Clients: {:?}", escalon.clients.lock().unwrap());
-        }
     }
 }
 
@@ -106,26 +110,11 @@ impl Message {
 
     // TODO
     // quizá enviar un join si no está en la lista de clientes
-    // pub fn handle_check(&self, escalon: &Escalon, content: CheckContent, addr: SocketAddr) {
     pub fn handle_check(&self, escalon: &Escalon, content: CheckContent) {
         escalon.clients.lock().unwrap().entry(content.sender_id).and_modify(|client| {
             client.last_seen = Utc::now().timestamp();
             client.state.jobs = content.jobs;
         });
-        //     .or_insert(EscalonClient {
-        //     start_time: std::time::SystemTime::now(),
-        //     address: addr,
-        //     last_seen: Utc::now().timestamp(),
-        //     state: ClientState {
-        //         jobs: content.jobs,
-        //     },
-        // });
-
-        let trace = std::env::var("TRACE").unwrap_or("false".to_string());
-        if trace == "true" {
-            let clients = escalon.clients.lock().unwrap();
-            println!("Clients: {:?}", clients);
-        }
     }
 }
 
@@ -141,16 +130,11 @@ impl Message {
 
     // TODO
     // quizá spawn un thread para enviar el join y quitar async de la firma
-    pub async fn handle_found_dead(
-        &self,
-        escalon: &Escalon,
-        addr: SocketAddr,
-        content: FoundDeadContent,
-    ) {
+    pub async fn handle_found_dead(&self, escalon: &Escalon, content: FoundDeadContent) {
         // si soy yo enviar un join 
         if content.dead_id == escalon.id {
-            let message = Message::new_join(escalon.id.clone(), escalon.start_time);
-            escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
+            let message = Message::new_join(escalon.address, &escalon.id, escalon.start_time);
+            escalon.tx_sender.clone().unwrap().send((message, None)).await.unwrap();
         }
 
         let clients = match escalon.clients.lock() {
@@ -172,51 +156,59 @@ impl Message {
 
 impl Message {
     pub fn new_take_jobs(
-        id: String,
-        from_client: String,
+        id: impl Into<String>,
+        take_from: impl Into<String>,
         start_at: usize,
         jobs: usize,
     ) -> Self {
         Self {
             action: Action::TakeJobs(TakeJobsContent {
-                sender_id: id,
-                from_client,
+                sender_id: id.into(),
+                take_from: take_from.into(),
                 start_at,
                 n_jobs: jobs,
             }),
         }
     }
 
-    pub async fn handle_take_jobs(
-        &self,
-        escalon: &Escalon,
-        addr: SocketAddr,
-        content: TakeJobsContent,
-    ) {
+    pub async fn handle_take_jobs(&self, escalon: &Escalon, content: TakeJobsContent) {
         let done = escalon
             .manager
-            .take_jobs(content.from_client.clone(), content.start_at, content.n_jobs)
+            .take_jobs(content.take_from.clone(), content.start_at, content.n_jobs)
             .await
             .unwrap();
 
+        let clients = escalon.clients.lock().unwrap().clone();
+        let sender = clients.get(&content.sender_id).unwrap();
         let chunks = done.chunks(50);
         for chunk in chunks {
             let message = Message::new_done(
                 escalon.id.clone(),
-                content.from_client.clone(),
+                content.take_from.clone(),
                 chunk.to_vec(),
             );
-            escalon.tx_sender.clone().unwrap().send((message, Some(addr))).await.unwrap();
+
+            escalon
+                .tx_sender
+                .clone()
+                .unwrap()
+                .send((message, Some(sender.address)))
+                .await
+                .unwrap();
         }
     }
 }
 
 impl Message {
-    pub fn new_done(id: String, from_client: String, jobs: Vec<String>) -> Self {
+    pub fn new_done(
+        id: impl Into<String>,
+        take_from: impl Into<String>,
+        jobs: Vec<String>,
+    ) -> Self {
         Self {
             action: Action::Done(DoneContent {
-                sender_id: id,
-                from_client,
+                sender_id: id.into(),
+                take_from: take_from.into(),
                 n_jobs: jobs,
             }),
         }
@@ -227,12 +219,10 @@ impl Message {
         escalon.manager.drop_jobs(content.n_jobs).await.unwrap();
 
         let mut temp = escalon.distribution.lock().unwrap();
-        temp.retain(|(sender, form_client, _start_at, _n_jobs, _done)| {
-            !(*sender == content.sender_id && *form_client == content.from_client)
+        // temp.retain(|(sender, form_client, _start_at, _n_jobs, _done)| {
+        temp.retain(|distrib| {
+            !(*distrib.client_id == content.sender_id
+                && *distrib.take_from == content.take_from)
         });
-
-        // if temp.len() == 0 {
-        //     println!("All distributed");
-        // }
     }
 }

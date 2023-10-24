@@ -38,7 +38,7 @@ impl<I, A, S, P, F> EscalonBuilder<I, A, S, P, F> {
             manager: self.manager,
         }
     }
-    
+
     /// Set the service address for udp broadcast
     /// in kubernetes is the service name
     /// elsewhere "255.255.255.255"
