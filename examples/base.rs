@@ -48,7 +48,6 @@ impl EscalonTrait for Manager {
 #[tokio::main]
 async fn main() -> Result<()> {
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0".to_string()).parse::<IpAddr>()?;
-    let svc  = std::env::var("SVC").unwrap_or("255.255.255.255".to_string()).parse::<IpAddr>()?;
     let port = std::env::var("PORT").unwrap_or("65056".to_string()).parse::<u16>()?;
     let iden = std::env::var("HOSTNAME").unwrap_or("server".to_string());
     let gran = std::env::var("GENRANGE").unwrap_or("10".to_string()).parse::<u16>()?;
@@ -59,7 +58,6 @@ async fn main() -> Result<()> {
     let mut udp_server = Escalon::new()
         .set_id(iden)
         .set_addr(addr)
-        .set_svc(svc)
         .set_port(port)
         .set_manager(manager.clone())
         .build()
