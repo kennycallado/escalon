@@ -47,15 +47,10 @@ pub struct Escalon {
     id: String,
     address: SocketAddr,
     start_time: std::time::SystemTime,
-
     pub clients: Arc<Mutex<HashMap<String, EscalonClient>>>,
     distribution: Arc<Mutex<Vec<Distrib>>>,
-
     manager: Arc<dyn EscalonTrait>,
-
     socket: Arc<UdpSocket>,
-    // TODO
-    // quizá en un Arc
     tx_handler: Option<Sender<Message>>,
     tx_sender: Option<Sender<(Message, Option<SocketAddr>)>>,
 }

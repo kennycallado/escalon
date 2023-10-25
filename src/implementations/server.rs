@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::time::SystemTime;
 use tokio::sync::mpsc::Sender;
 
 use crate::constants::{BUFFER_SIZE, MAX_CONNECTIONS};
@@ -6,7 +7,7 @@ use crate::types::message::{Action, JoinContent, Message};
 use crate::Escalon;
 
 impl Escalon {
-    pub async fn listen(&mut self) {
+    pub async fn listen(&mut self) -> SystemTime {
         self.tx_sender = Some(self.to_udp());
         self.tx_handler = Some(self.handle_action());
 
@@ -21,6 +22,7 @@ impl Escalon {
         self.from_udp();
 
         println!("Server listen on: {}", self.socket.local_addr().unwrap());
+        self.start_time
     }
 
     pub fn send_join(&self) {
